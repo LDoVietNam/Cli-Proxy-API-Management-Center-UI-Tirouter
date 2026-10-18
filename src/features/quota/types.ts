@@ -31,7 +31,6 @@ export interface QuotaClassMap {
   codexResetCredits: string;
   codexResetCreditsTitle: string;
   codexResetCreditRow: string;
-  codexResetCreditRowSoon: string;
   codexResetCreditLabel: string;
   codexResetCreditTime: string;
   codexResetCreditsError: string;
@@ -46,6 +45,12 @@ export interface QuotaClassMap {
   quotaBarFillHigh: string;
   quotaBarFillMedium: string;
   quotaBarFillLow: string;
+  // Meta quota extras (optional — only the meta host CSS defines these)
+  hint?: string;
+  planName?: string;
+  planNameLabel?: string;
+  planNameValue?: string;
+  subscriptionActive?: string;
 }
 
 export const QUOTA_CLASS_KEYS: readonly (keyof QuotaClassMap)[] = [
@@ -68,7 +73,6 @@ export const QUOTA_CLASS_KEYS: readonly (keyof QuotaClassMap)[] = [
   'codexResetCredits',
   'codexResetCreditsTitle',
   'codexResetCreditRow',
-  'codexResetCreditRowSoon',
   'codexResetCreditLabel',
   'codexResetCreditTime',
   'codexResetCreditsError',

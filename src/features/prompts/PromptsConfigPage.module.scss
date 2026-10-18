@@ -1,0 +1,230 @@
+@use '../../styles/mixins' as *;
+
+.prompts-config-page {
+  padding: $spacing-md;
+}
+
+.page-header {
+  margin-bottom: $spacing-lg;
+}
+
+.page-header h1 {
+  font-size: 24px;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin: 0 0 $spacing-sm;
+}
+
+.page-description {
+  color: var(--text-secondary);
+  font-size: 14px;
+  margin: 0;
+}
+
+.config-card {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: $radius-lg;
+  padding: $spacing-lg;
+  max-width: 800px;
+}
+
+.form-group {
+  margin-bottom: 20px;
+}
+
+.form-label {
+  display: block;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  cursor: pointer;
+  margin-bottom: $spacing-sm;
+}
+
+.form-hint {
+  font-size: 12px;
+  color: var(--text-tertiary);
+  margin: 4px 0 0;
+}
+
+.input {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  font-size: 13px;
+  box-sizing: border-box;
+  font-family: inherit;
+}
+
+.input:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.select {
+  padding: $spacing-sm 12px;
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  font-size: 13px;
+}
+
+.select:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.section-divider {
+  height: 1px;
+  background: var(--border-color);
+  margin: $spacing-lg 0;
+}
+
+.section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: $spacing-md;
+}
+
+.section-header h3 {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin: 0;
+}
+
+.preset-card {
+  border: 1px solid var(--border-color);
+  border-radius: $radius-md;
+  padding: $spacing-md;
+  margin-bottom: $spacing-md;
+  background: var(--bg-primary);
+}
+
+.preset-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: $spacing-sm;
+  margin-bottom: $spacing-md;
+}
+
+.preset-name-input {
+  flex: 1;
+  padding: $spacing-sm 12px;
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.preset-name-input:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.preset-actions {
+  display: flex;
+  gap: $spacing-sm;
+}
+
+.preset-config {
+  display: flex;
+  flex-direction: column;
+  gap: $spacing-md;
+}
+
+.inject-fields {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: $spacing-md;
+}
+
+.disabled-notice {
+  padding: $spacing-md;
+  border: 1px dashed var(--border-color);
+  border-radius: $radius-md;
+  color: var(--text-tertiary);
+  font-size: 13px;
+  text-align: center;
+}
+
+.empty-state {
+  padding: $spacing-lg;
+  border: 1px dashed var(--border-color);
+  border-radius: $radius-md;
+  text-align: center;
+  color: var(--text-tertiary);
+  font-size: 13px;
+}
+
+.default-inject-section h3 {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin: 0 0 4px;
+}
+
+.default-inject-section .form-hint {
+  margin-bottom: $spacing-md;
+}
+
+.loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: $spacing-sm;
+  padding: 48px;
+  color: var(--text-tertiary);
+}
+
+.error-box {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: $spacing-sm;
+  padding: $spacing-md;
+  margin-bottom: $spacing-lg;
+  border: 1px solid var(--error-color);
+  border-radius: $radius-md;
+  background: var(--bg-secondary);
+  color: var(--error-color);
+}
+
+.error-box .error-message {
+  color: var(--text-primary);
+  font-size: 14px;
+}
+
+.toggle-row {
+  display: flex;
+  align-items: center;
+}
+
+@include mobile {
+  .prompts-config-page {
+    padding: $spacing-sm;
+  }
+
+  .config-card {
+    padding: $spacing-md;
+  }
+
+  .preset-header {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .section-header {
+    flex-wrap: wrap;
+    gap: $spacing-sm;
+  }
+}

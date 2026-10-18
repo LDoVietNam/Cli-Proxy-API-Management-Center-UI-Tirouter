@@ -17,14 +17,14 @@ describe('YAML document editing semantics', () => {
   ] as const;
 
   for (const [field, yamlKey, initial] of numericFields) {
-    test(`clearing ${yamlKey} removes the key, not replaces it with zero or a placeholder`, () => {
+    test(`clearing ${yamlKey} removes the key, not replaces it with zero or a placeholder`, async () => {
       const yaml = `# unrelated setting\nfuture-option: keep\n${yamlKey}: ${initial}\n`;
-      const config = runVisualConfig(yaml, [{ [field]: '' }]);
+      const config = await runVisualConfig(yaml, [{ [field]: '' }]);
       expect(config.visualDirtyFields.has(field)).toBe(true);
       const output = config.applyVisualChangesToYaml(yaml);
       expect(parseYaml(output)).toEqual({ 'future-option': 'keep' });
       expect(output).toContain('# unrelated setting');
-      expect(runVisualConfig(output).visualValues[field]).toBe('');
+      expect((await runVisualConfig(output)).visualValues[field]).toBe('');
     });
   }
 
@@ -32,9 +32,9 @@ describe('YAML document editing semantics', () => {
     ['keepaliveSeconds', 'keepalive-seconds'],
     ['bootstrapRetries', 'bootstrap-retries'],
   ] as const) {
-    test(`clearing streaming.${yamlKey} preserves unmanaged siblings`, () => {
+    test(`clearing streaming.${yamlKey} preserves unmanaged siblings`, async () => {
       const yaml = `streaming:\n  ${yamlKey}: 2\n  future-option: keep\n`;
-      const config = runVisualConfig(yaml, [
+      const config = await runVisualConfig(yaml, [
         { streaming: { ...DEFAULT_VISUAL_VALUES.streaming, [field]: '' } },
       ]);
       expect(parseYaml(config.applyVisualChangesToYaml(yaml))).toEqual({
@@ -43,9 +43,9 @@ describe('YAML document editing semantics', () => {
     });
   }
 
-  test('clearing nonstream keepalive deletes the top-level key, not the streaming block', () => {
+  test('clearing nonstream keepalive deletes the top-level key, not the streaming block', async () => {
     const yaml = 'nonstream-keepalive-interval: 2\nstreaming:\n  future-option: keep\n';
-    const config = runVisualConfig(yaml, [
+    const config = await runVisualConfig(yaml, [
       { streaming: { ...DEFAULT_VISUAL_VALUES.streaming, nonstreamKeepaliveInterval: '' } },
     ]);
     expect(parseYaml(config.applyVisualChangesToYaml(yaml))).toEqual({
@@ -53,22 +53,22 @@ describe('YAML document editing semantics', () => {
     });
   });
 
-  test('clearing the last managed streaming value removes the empty block', () => {
+  test('clearing the last managed streaming value removes the empty block', async () => {
     const yaml = 'streaming:\n  keepalive-seconds: 2\n';
-    const config = runVisualConfig(yaml, [{ streaming: { ...DEFAULT_VISUAL_VALUES.streaming } }]);
+    const config = await runVisualConfig(yaml, [{ streaming: { ...DEFAULT_VISUAL_VALUES.streaming } }]);
     expect(parseYaml(config.applyVisualChangesToYaml(yaml))).toEqual({});
   });
 
-  test('retains existing empty string keys rather than treating all blanks as numeric resets', () => {
+  test('retains existing empty string keys rather than treating all blanks as numeric resets', async () => {
     const yaml = 'proxy-url: http://proxy.example\ntls:\n  cert: fixture.pem\n  key: fixture.key\n';
-    const config = runVisualConfig(yaml, [{ proxyUrl: '', tlsCert: '' }]);
+    const config = await runVisualConfig(yaml, [{ proxyUrl: '', tlsCert: '' }]);
     expect(parseYaml(config.applyVisualChangesToYaml(yaml))).toEqual({
       'proxy-url': '',
       tls: { cert: '', key: 'fixture.key' },
     });
   });
 
-  test('does not normalize untouched file values or drop unknown plugin settings', () => {
+  test('does not normalize untouched file values or drop unknown plugin settings', async () => {
     const yaml = `# file values, not a runtime snapshot
 redis-usage-queue-retention-seconds: 5000
 gpt-image-2-base-model: custom-invalid-model
@@ -78,7 +78,7 @@ plugins:
       enabled: false
       custom-option: keep
 `;
-    const config = runVisualConfig(yaml, [{ debug: true }]);
+    const config = await runVisualConfig(yaml, [{ debug: true }]);
     const output = config.applyVisualChangesToYaml(yaml);
     expect(parseYaml(output)).toEqual({ ...parseYaml(yaml), debug: true });
     expect(output).toContain('# file values, not a runtime snapshot');
@@ -88,7 +88,7 @@ plugins:
     );
   });
 
-  test('preserves raw source drafts and keeps invalid raw Payload validation', () => {
+  test('preserves raw source drafts and keeps invalid raw Payload validation', async () => {
     const source = `payload:
   default-raw:
     - models:
@@ -96,7 +96,7 @@ plugins:
       params:
         fixture: not-valid-json
 `;
-    const config = runVisualConfig(source);
+    const config = await runVisualConfig(source);
     expect(config.visualHasPayloadValidationErrors).toBe(true);
     expect(config.applyVisualChangesToYaml(source)).toBe(source);
     expect(

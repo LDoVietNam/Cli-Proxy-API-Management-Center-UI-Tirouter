@@ -474,6 +474,8 @@ function SponsorKeyEntryCard({
               onChange={(value) =>
                 updateEntry({ protocol: value as SponsorProtocol, models: [emptyModel()] })
               }
+              searchable
+              searchPlaceholder={t('providersPage.sponsor.searchProtocol', { defaultValue: 'Search protocol...' })}
               disabled={mutating}
               ariaLabel={t('providersPage.sponsor.protocol')}
             />

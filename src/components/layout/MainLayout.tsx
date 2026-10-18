@@ -5,7 +5,6 @@ import {
   useCallback,
   useEffect,
   useLayoutEffect,
-  useMemo,
   useRef,
   useState,
   type MouseEvent as ReactMouseEvent,
@@ -25,11 +24,18 @@ import {
   IconSidebarOauth,
   IconSidebarPlugins,
   IconSidebarProviders,
-  IconSidebarQuickStart,
   IconSidebarQuota,
   IconSidebarStore,
   IconSidebarSystem,
+  IconSidebarCLIProviders,
+  IconSidebarCompression,
+  IconSidebarRTK,
+  IconSidebarPrompts,
+  IconSidebarRoutingTest,
+  IconSidebarKanban,
+  IconModels,
   IconChevronDown,
+  IconSidebarServices,
 } from '@/components/ui/icons';
 import { INLINE_LOGO_JPEG } from '@/assets/logoInline';
 import {
@@ -46,16 +52,13 @@ import {
   resolvePluginAssetURL,
   type PluginResourceEntry,
 } from '@/features/plugins/pluginResources';
-import { APIKEY_FUN_DISPLAY_NAME, hasApiKeyFunConfig } from '@/features/providers/sponsor';
 import { triggerHeaderRefresh } from '@/hooks/useHeaderRefresh';
 import { LANGUAGE_LABEL_KEYS, LANGUAGE_ORDER } from '@/utils/constants';
 import { isSupportedLanguage } from '@/utils/language';
-import { getSidebarShortcutLabel, isSidebarToggleShortcut } from '@/utils/sidebarShortcut';
 import type { Theme } from '@/types';
 
 const sidebarIcons: Record<string, ReactNode> = {
   dashboard: <IconSidebarDashboard size={18} />,
-  quickStart: <IconSidebarQuickStart size={18} />,
   aiProviders: <IconSidebarProviders size={18} />,
   authFiles: <IconSidebarAuthFiles size={18} />,
   oauth: <IconSidebarOauth size={18} />,
@@ -65,6 +68,14 @@ const sidebarIcons: Record<string, ReactNode> = {
   config: <IconSidebarConfig size={18} />,
   logs: <IconSidebarLogs size={18} />,
   system: <IconSidebarSystem size={18} />,
+  cliProviders: <IconSidebarCLIProviders size={18} />,
+  compression: <IconSidebarCompression size={18} />,
+  rtk: <IconSidebarRTK size={18} />,
+  prompts: <IconSidebarPrompts size={18} />,
+  routingTest: <IconSidebarRoutingTest size={18} />,
+  models: <IconModels size={18} />,
+  taskboard: <IconSidebarKanban size={18} />,
+  services: <IconSidebarServices size={18} />,
 };
 
 interface SidebarNavLinkItem {
@@ -318,7 +329,6 @@ export function MainLayout() {
 
   const fetchConfig = useConfigStore((state) => state.fetchConfig);
   const clearCache = useConfigStore((state) => state.clearCache);
-  const config = useConfigStore((state) => state.config);
 
   const theme = useThemeStore((state) => state.theme);
   const setTheme = useThemeStore((state) => state.setTheme);
@@ -583,15 +593,6 @@ export function MainLayout() {
       })
     : [];
 
-  const isApiKeyFunConfigured = hasApiKeyFunConfig(config);
-  const quickStartNavItem: SidebarNavLinkItem = {
-    path: '/quick-start',
-    label: isApiKeyFunConfigured ? APIKEY_FUN_DISPLAY_NAME : undefined,
-    labelKey: isApiKeyFunConfigured ? undefined : 'nav.quick_start',
-    metaKey: 'nav_meta.quick_start',
-    icon: sidebarIcons.quickStart,
-  };
-
   const navGroups: SidebarNavGroup[] = [
     {
       id: 'operate',
@@ -603,7 +604,7 @@ export function MainLayout() {
           metaKey: 'nav_meta.dashboard',
           icon: sidebarIcons.dashboard,
         },
-        ...(!isApiKeyFunConfigured ? [quickStartNavItem] : []),
+        // PRUNED 2026-10-14: page hidden, backend endpoints missing
       ],
     },
     {
@@ -633,7 +634,13 @@ export function MainLayout() {
           metaKey: 'nav_meta.oauth',
           icon: sidebarIcons.oauth,
         },
-        ...(isApiKeyFunConfigured ? [quickStartNavItem] : []),
+        // PRUNED 2026-10-14: page hidden, backend endpoints missing
+        {
+          path: '/models',
+          labelKey: 'nav.models',
+          metaKey: 'nav_meta.models',
+          icon: sidebarIcons.models,
+        },
       ],
     },
     {
@@ -646,6 +653,8 @@ export function MainLayout() {
           metaKey: 'nav_meta.quota_management',
           icon: sidebarIcons.quota,
         },
+        // PRUNED 2026-10-14: page hidden, backend endpoints missing
+        // PRUNED 2026-10-14: page hidden, backend endpoints missing
         {
           path: '/logs',
           labelKey: 'nav.logs',
@@ -663,6 +672,18 @@ export function MainLayout() {
           labelKey: 'nav.config_management',
           metaKey: 'nav_meta.config_management',
           icon: sidebarIcons.config,
+        },
+        {
+          path: '/rtk',
+          labelKey: 'nav.rtk_config',
+          metaKey: 'nav_meta.rtk_config',
+          icon: sidebarIcons.rtk,
+        },
+        {
+          path: '/prompts',
+          labelKey: 'nav.prompts_config',
+          metaKey: 'nav_meta.prompts_config',
+          icon: sidebarIcons.prompts,
         },
         ...(supportsPlugin
           ? [
@@ -686,6 +707,7 @@ export function MainLayout() {
           metaKey: 'nav_meta.system_info',
           icon: sidebarIcons.system,
         },
+        // PRUNED 2026-10-14: page hidden, backend endpoints missing
       ],
     },
     ...(pluginPageNavItems.length > 0
@@ -812,31 +834,6 @@ export function MainLayout() {
     },
     [hideRailTooltip, showRailTooltip]
   );
-
-  const isMac = useMemo(() => {
-    if (typeof navigator === 'undefined') return false;
-    const platform =
-      (navigator as unknown as { userAgentData?: { platform?: string } }).userAgentData?.platform ||
-      navigator.platform ||
-      navigator.userAgent ||
-      '';
-    return /(Mac|iPhone|iPod|iPad)/i.test(platform);
-  }, []);
-
-  const shortcutText = getSidebarShortcutLabel(isMac);
-
-  useEffect(() => {
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (isSidebarToggleShortcut(event)) {
-        event.preventDefault();
-        hideRailTooltip();
-        setSidebarCollapsed((prev) => !prev);
-      }
-    };
-
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [hideRailTooltip]);
 
   const renderNavBadge = (badge?: number, badgeLabel?: string) =>
     typeof badge === 'number' ? (
@@ -968,8 +965,6 @@ export function MainLayout() {
     ? t('sidebar.toggle_collapse', { defaultValue: 'Close navigation' })
     : t('sidebar.toggle_expand', { defaultValue: 'Open navigation' });
 
-  const sidebarToggleLabel = sidebarCollapsed ? t('sidebar.expand') : t('sidebar.collapse');
-
   return (
     <div
       className={`app-shell ${sidebarCollapsed ? 'sidebar-is-collapsed' : ''} ${
@@ -986,18 +981,8 @@ export function MainLayout() {
             hideRailTooltip();
             setSidebarCollapsed((prev) => !prev);
           }}
-          onMouseEnter={(event) =>
-            handleRailTooltipMouseEnter(event, 'sidebar-toggle', sidebarToggleLabel, shortcutText)
-          }
-          onMouseLeave={handleRailTooltipMouseLeave}
-          onFocus={(event) =>
-            handleRailTooltipFocus(event, 'sidebar-toggle', sidebarToggleLabel, shortcutText)
-          }
-          onBlur={(event) =>
-            handleRailTooltipBlur(event, 'sidebar-toggle', sidebarToggleLabel, shortcutText)
-          }
-          aria-label={`${sidebarToggleLabel} (${shortcutText})`}
-          aria-describedby={railTooltip?.targetID === 'sidebar-toggle' ? NAV_TOOLTIP_ID : undefined}
+          title={sidebarCollapsed ? t('sidebar.expand') : t('sidebar.collapse')}
+          aria-label={sidebarCollapsed ? t('sidebar.expand') : t('sidebar.collapse')}
         >
           {sidebarCollapsed ? headerIcons.chevronRight : headerIcons.chevronLeft}
         </button>
@@ -1176,7 +1161,7 @@ export function MainLayout() {
           </div>
         </aside>
 
-        {railTooltip && (
+        {!showSidebarLabels && railTooltip && (
           <div
             ref={railTooltipRef}
             id={NAV_TOOLTIP_ID}

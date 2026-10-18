@@ -14,6 +14,10 @@ interface MeterProps {
   tone?: MeterTone;
   ariaLabel: string;
   className?: string;
+  /** 兼容调用方的尺寸提示（当前样式固定为细条，不再区分） */
+  size?: 'xs' | 'sm' | 'md' | 'lg';
+  /** 兼容调用方是否内联显示数值（当前由外层自行渲染） */
+  showValue?: boolean;
 }
 
 /**

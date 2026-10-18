@@ -11,7 +11,19 @@
   padding-right: 2px;
 }
 
+.skeletonList {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
 .item {
+  /* button reset：复制行从 div 迁移到 button 语义 */
+  width: 100%;
+  margin: 0;
+  font: inherit;
+  text-align: left;
+  background: transparent;
   display: flex;
   align-items: baseline;
   gap: 8px;
@@ -27,6 +39,11 @@
 
   &:active {
     transform: scale(0.99);
+  }
+
+  &:focus-visible {
+    outline: 2px solid $primary-color;
+    outline-offset: 1px;
   }
 }
 

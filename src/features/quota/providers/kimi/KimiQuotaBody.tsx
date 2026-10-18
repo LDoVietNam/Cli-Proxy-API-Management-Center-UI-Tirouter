@@ -1,25 +1,20 @@
 /**
- * Kimi 额度渲染体：用量行水位条。
+ * Kimi quota rendering body.
  */
 
-import { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { KimiQuotaState } from '@/types';
-import { buildResetDisplay, formatKimiResetHint } from '@/utils/quota';
-import { useNow } from '@/hooks/useNow';
+import { buildResetDisplay } from '@/utils/quota/relativeTime';
 import { QuotaMeter } from '../../components/QuotaMeter';
-import { QuotaResetLabel } from '../../components/QuotaResetLabel';
-import { collectQuotaRowInstants, pickUrgentRowId } from '../../resetSchedule';
 import type { QuotaBodyProps } from '../../types';
+import { useNow } from '@/hooks/useNow';
 
-export function KimiQuotaBody({ quota, classes }: QuotaBodyProps<KimiQuotaState>) {
-  const { t, i18n } = useTranslation();
-  // Ahead of the early return below — hooks cannot be conditional.
+export function KimiQuotaBody({ quota, classes, nowMs: nowMsProp }: QuotaBodyProps<KimiQuotaState> & { nowMs?: number }) {
+  const { t } = useTranslation();
+  // useNow (not Date.now default) — react-compiler lint: impure call in render.
+  // Hook must run before the early return below.
   const now = useNow();
-  const soonestRowId = useMemo(
-    () => pickUrgentRowId(collectQuotaRowInstants('kimi', quota), now),
-    [quota, now]
-  );
+  const nowMs = nowMsProp ?? now;
   const rows = quota.rows ?? [];
 
   if (rows.length === 0) {
@@ -41,26 +36,32 @@ export function KimiQuotaBody({ quota, classes }: QuotaBodyProps<KimiQuotaState>
         const rowLabel = row.labelKey
           ? t(row.labelKey, (row.labelParams ?? {}) as Record<string, string | number>)
           : (row.label ?? '');
+
+        // Build reset display with both absolute and relative time
         const resetDisplay = buildResetDisplay(
-          row.resetAtMs == null ? formatKimiResetHint(t, row.resetHint) : null,
+          null,
           row.resetAtMs,
-          now,
-          i18n.resolvedLanguage
+          nowMs
         );
-        const soon = row.id === soonestRowId;
 
         return (
-          <div
-            key={row.id}
-            className={classes.quotaRow}
-            title={soon ? t('quota_management.soonest_row_hint') : undefined}
-          >
+          <div key={row.id} className={classes.quotaRow}>
             <div className={classes.quotaRowHeader}>
               <span className={classes.quotaModel}>{rowLabel}</span>
               <div className={classes.quotaMeta}>
                 <span className={classes.quotaPercent}>{percentLabel}</span>
-                {resetDisplay && (
-                  <QuotaResetLabel display={resetDisplay} classes={classes} soon={soon} />
+                {resetDisplay?.absolute && (
+                  <span className={classes.quotaReset}>
+                    {resetDisplay.absolute}
+                    {resetDisplay?.relative && (
+                      <>
+                        <span className={classes.quotaResetRelative}>
+                          {' '}
+                          ({resetDisplay.relative})
+                        </span>
+                      </>
+                    )}
+                  </span>
                 )}
               </div>
             </div>

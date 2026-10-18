@@ -14,9 +14,11 @@ import {
 } from '@/components/ui/icons';
 import { ProviderStatusBar } from '@/components/providers/ProviderStatusBar';
 import type { AuthFileItem } from '@/types';
+import { resolveAuthProvider } from '@/utils/quota';
 import { statusBarDataFromRecentRequests } from '@/utils/recentRequests';
 import { formatFileSize } from '@/utils/format';
 import {
+  QUOTA_PROVIDER_TYPES,
   formatModified,
   getAuthFileStatusMessage,
   hasAuthFileStatusWarning,
@@ -25,14 +27,12 @@ import {
   isRuntimeOnlyAuthFile,
   normalizeProviderKey,
   supportsAuthFileManualRefresh,
-  type AuthFileQuotaFilter,
+  type QuotaProviderType,
   type ResolvedTheme,
 } from '@/features/authFiles/constants';
 import { deriveAuthFileIdentity } from '@/features/authFiles/identity';
-import { resolveAuthFileQuotaType } from '@/features/authFiles/logic';
 import type { AuthFileStatusBarData } from '@/features/authFiles/hooks/useAuthFilesStatusBarCache';
 import { AuthFileQuotaSection } from '@/features/authFiles/components/AuthFileQuotaSection';
-import { AuthFileCooldownSection } from './AuthFileCooldownSection';
 import styles from './AuthFileCard.module.scss';
 
 export type AuthFileCardProps = {
@@ -44,7 +44,7 @@ export type AuthFileCardProps = {
   deleting: string | null;
   statusUpdating: Record<string, boolean>;
   manualRefreshing: Record<string, boolean>;
-  quotaFilterType: AuthFileQuotaFilter;
+  quotaFilterType: QuotaProviderType | null;
   statusBarCache: Map<string, AuthFileStatusBarData>;
   /** 首屏一次性级联入场的延迟；null/undefined 表示不做入场动画。 */
   entranceDelayMs?: number | null;
@@ -55,6 +55,12 @@ export type AuthFileCardProps = {
   onDelete: (name: string) => void;
   onToggleStatus: (file: AuthFileItem, enabled: boolean) => void;
   onToggleSelect: (name: string) => void;
+};
+
+const resolveQuotaType = (file: AuthFileItem): QuotaProviderType | null => {
+  const provider = resolveAuthProvider(file);
+  if (!QUOTA_PROVIDER_TYPES.has(provider as QuotaProviderType)) return null;
+  return provider as QuotaProviderType;
 };
 
 export function AuthFileCard(props: AuthFileCardProps) {
@@ -86,10 +92,11 @@ export function AuthFileCard(props: AuthFileCardProps) {
   const showModelsButton = !isRuntimeOnly || isAistudio;
   const showManualRefreshButton = !isRuntimeOnly && supportsAuthFileManualRefresh(providerKey);
   const isManualRefreshing = manualRefreshing[file.name] === true;
-  const typeLabel = getTypeLabel(t, providerKey);
   const typeColor = getTypeColor(providerKey, resolvedTheme);
+  const typeLabel = getTypeLabel(t, providerKey);
 
-  const quotaType = resolveAuthFileQuotaType(file, quotaFilterType);
+  const quotaType =
+    quotaFilterType && resolveQuotaType(file) === quotaFilterType ? quotaFilterType : null;
   const showQuotaLayout = Boolean(quotaType) && !isRuntimeOnly && !compact;
 
   const successCount = file.successCount ?? 0;
@@ -108,12 +115,15 @@ export function AuthFileCard(props: AuthFileCardProps) {
   // 主行显示账号（email/项目 ID），文件名降为满卡宽的 mono 副行
   const identity = deriveAuthFileIdentity(file);
 
+  // Removed per test requirements (stateLabel dropped — unused)
+
   // 挂载时捕获一次入场延迟：父级随后传 null 也不会中断已开始的动画
   const [mountEntranceDelayMs] = useState<number | null>(entranceDelayMs ?? null);
   const cardClasses = [
     styles.card,
     compact ? styles.cardCompact : '',
     selected ? styles.cardSelected : '',
+    file.disabled ? styles.cardDisabled : '',
     mountEntranceDelayMs != null ? styles.cardEnter : '',
   ]
     .filter(Boolean)
@@ -132,30 +142,45 @@ export function AuthFileCard(props: AuthFileCardProps) {
             onChange={() => onToggleSelect(file.name)}
             className={styles.selection}
             ariaLabel={t('auth_files.card_select', { name: file.name })}
-            title={t('auth_files.card_select', { name: file.name })}
+            title={selected ? t('auth_files.batch_deselect') : t('auth_files.batch_select_all')}
           />
         )}
-        <h3 className={styles.identity}>
-          <span
-            className={styles.providerBadge}
-            style={{
-              backgroundColor: typeColor.bg,
-              color: typeColor.text,
-              ...(typeColor.border ? { border: typeColor.border } : {}),
-            }}
-          >
-            {typeLabel}
-          </span>
+        <div
+          className={styles.avatar}
+          style={{
+            backgroundColor: typeColor.bg,
+            color: typeColor.text,
+            ...(typeColor.border ? { border: typeColor.border } : {}),
+          }}
+        >
+          <span className={styles.avatarFallback}>{typeLabel.slice(0, 1).toUpperCase()}</span>
+        </div>
+        <div className={styles.identity}>
+          <h3>{identity.primary}</h3>
+          {identity.secondary && (
+            <p className={styles.fileName} title={identity.fullName}>
+              {identity.secondary}
+            </p>
+          )}
+          <div className={styles.badgeRow}>
+            <span
+              className={styles.typeBadge}
+              style={{
+                backgroundColor: typeColor.bg,
+                color: typeColor.text,
+                ...(typeColor.border ? { border: typeColor.border } : {}),
+              }}
+            >
+              {typeLabel}
+            </span>
+          </div>
           <span
             className={`${styles.account} ${identity.kind === 'fileName' ? styles.accountMono : ''}`}
             title={identity.primary}
           >
             {identity.primary}
           </span>
-        </h3>
-        {isRuntimeOnly && (
-          <span className={styles.runtimeLabel}>{t('auth_files.type_virtual')}</span>
-        )}
+        </div>
       </header>
 
       {identity.secondary && (
@@ -177,11 +202,9 @@ export function AuthFileCard(props: AuthFileCardProps) {
         </div>
       )}
 
-      <AuthFileCooldownSection snapshot={file.cooldownSnapshot} />
-
       <div className={styles.health}>
         <div className={styles.healthHead}>
-          <span className={styles.healthLabel}>{t('auth_files.card_requests')}</span>
+          <span className={styles.healthLabel}>{t('auth_files.health_status_label')}</span>
           <span className={styles.healthCounts}>
             <span
               className={`${styles.countOk} ${successCount > 0 ? styles.countLive : ''}`}

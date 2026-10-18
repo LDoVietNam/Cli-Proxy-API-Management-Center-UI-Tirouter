@@ -1,0 +1,237 @@
+.card {
+  background: var(--surface-primary);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  transition: box-shadow var(--transition-fast), border-color var(--transition-fast);
+}
+
+.card:hover {
+  box-shadow: var(--shadow-md);
+  border-color: var(--border-hover);
+}
+
+.cardEnter {
+  animation: cardEntrance var(--motion-duration-slow) var(--motion-ease-out) forwards;
+  opacity: 0;
+  transform: translateY(12px);
+}
+
+@keyframes cardEntrance {
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.statusHealthy {
+  border-left: 3px solid var(--viz-success);
+}
+
+.statusWarning {
+  border-left: 3px solid var(--amber-color);
+}
+
+.statusCritical {
+  border-left: 3px solid var(--viz-failure);
+}
+
+.statusError {
+  border-left: 3px solid var(--viz-failure);
+  background: rgba(var(--viz-failure-rgb), 0.03);
+}
+
+.statusUnknown {
+  border-left: 3px solid var(--text-quaternary);
+}
+
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  padding: var(--space-3) var(--space-4);
+  background: var(--surface-secondary);
+  border-bottom: 1px solid var(--border-color);
+}
+
+.providerInfo {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.providerBadge {
+  font-size: var(--font-size-xs);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--viz-primary);
+  background: rgba(var(--viz-primary-rgb), 0.1);
+  padding: 2px 8px;
+  border-radius: var(--radius-sm);
+  display: inline-block;
+  width: fit-content;
+}
+
+.modelName {
+  font-size: var(--font-size-sm);
+  font-weight: 500;
+  color: var(--text-primary);
+  font-family: var(--font-mono);
+}
+
+.statusBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  font-size: var(--font-size-xs);
+  font-weight: 500;
+  padding: var(--space-1) var(--space-2);
+  border-radius: var(--radius-full);
+  white-space: nowrap;
+}
+
+.statusBadge.statusHealthy {
+  background: rgba(var(--viz-success-rgb), 0.15);
+  color: var(--viz-success);
+}
+
+.statusBadge.statusWarning {
+  background: rgba(var(--amber-rgb), 0.15);
+  color: var(--amber-color);
+}
+
+.statusBadge.statusCritical,
+.statusBadge.statusError {
+  background: rgba(var(--viz-failure-rgb), 0.15);
+  color: var(--viz-failure);
+}
+
+.statusBadge.statusUnknown {
+  background: rgba(var(--text-quaternary-rgb), 0.15);
+  color: var(--text-quaternary);
+}
+
+.body {
+  padding: var(--space-4);
+}
+
+.usageSection {
+  margin-bottom: var(--space-4);
+}
+
+.usageBar {
+  height: 8px;
+  background: var(--surface-tertiary);
+  border-radius: var(--radius-full);
+  overflow: hidden;
+  margin-bottom: var(--space-2);
+}
+
+.usageFill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--viz-primary), var(--viz-primary-light));
+  border-radius: var(--radius-full);
+  transition: width var(--motion-duration-normal) var(--motion-ease-out);
+  position: relative;
+}
+
+.statusCritical .usageFill,
+.statusError .usageFill {
+  background: linear-gradient(90deg, var(--viz-failure), var(--viz-failure-light));
+}
+
+.statusWarning .usageFill {
+  background: linear-gradient(90deg, var(--amber-color), var(--amber-light));
+}
+
+.usageLabels {
+  display: flex;
+  justify-content: space-between;
+  font-size: var(--font-size-xs);
+  color: var(--text-tertiary);
+  font-family: var(--font-mono);
+  margin-bottom: var(--space-1);
+}
+
+.usagePercent {
+  text-align: right;
+  font-size: var(--font-size-lg);
+  font-weight: 600;
+  font-family: var(--font-mono);
+  color: var(--text-primary);
+}
+
+.statusCritical .usagePercent,
+.statusError .usagePercent {
+  color: var(--viz-failure);
+}
+
+.statusWarning .usagePercent {
+  color: var(--amber-color);
+}
+
+.details {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding-top: var(--space-3);
+  border-top: 1px solid var(--border-color);
+}
+
+.detailRow {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: var(--font-size-sm);
+}
+
+.detailLabel {
+  color: var(--text-tertiary);
+}
+
+.detailValue {
+  color: var(--text-primary);
+  font-family: var(--font-mono);
+  font-weight: 500;
+}
+
+.errorMessage {
+  padding: var(--space-2) var(--space-3);
+  background: rgba(var(--viz-failure-rgb), 0.1);
+  border-radius: var(--radius-md);
+  border: 1px solid rgba(var(--viz-failure-rgb), 0.2);
+}
+
+.errorLabel {
+  font-size: var(--font-size-xs);
+  font-weight: 600;
+  color: var(--viz-failure);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  display: block;
+  margin-bottom: var(--space-1);
+}
+
+.errorText {
+  font-size: var(--font-size-sm);
+  color: var(--text-secondary);
+  font-family: var(--font-mono);
+}
+
+.actions {
+  display: flex;
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-4);
+  background: var(--surface-secondary);
+  border-top: 1px solid var(--border-color);
+}
+
+.historyAction,
+.refreshAction {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-1);
+}

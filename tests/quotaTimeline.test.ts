@@ -6,7 +6,6 @@ import {
   laneHasWindow,
   pickLaneWindow,
   projectLane,
-  projectResetCredits,
   startOfDay,
   startOfWeek,
   timelineSpan,
@@ -14,7 +13,8 @@ import {
 } from '../src/features/quota/quotaTimelineModel';
 import type { TimelineLane } from '../src/features/quota/quotaTimelineModel';
 
-const at = (y: number, m: number, d: number, h = 0, min = 0) => new Date(y, m, d, h, min).getTime();
+const at = (y: number, m: number, d: number, h = 0, min = 0) =>
+  new Date(y, m, d, h, min).getTime();
 
 describe('windowsIn', () => {
   test('projects backwards and forwards from the anchor', () => {
@@ -107,7 +107,6 @@ describe('projectLane', () => {
     periodHours: 24 * 7,
     remaining: 40,
     limits: [],
-    resetCredits: [],
     ...over,
   });
 
@@ -171,29 +170,6 @@ describe('projectLane', () => {
     );
     expect(windows.some((w) => w.endMs - w.startMs === 5 * HOUR_MS)).toBe(true);
   });
-
-  test('projects only unexpired reset credits inside the visible span', () => {
-    const now = at(2026, 6, 29, 12);
-    const visibleExpiry = at(2026, 7, 2, 12);
-    const marks = projectResetCredits(
-      lane({
-        resetCredits: [
-          { id: 'expired', grantedAtMs: null, expiresAtMs: now - HOUR_MS },
-          { id: 'visible', grantedAtMs: now - DAY_MS, expiresAtMs: visibleExpiry },
-          { id: 'outside', grantedAtMs: now, expiresAtMs: span.endMs + HOUR_MS },
-        ],
-      }),
-      span.startMs,
-      span.endMs,
-      now
-    );
-
-    expect(marks).toHaveLength(1);
-    expect(marks[0].id).toBe('visible');
-    expect(marks[0].leftPercent).toBe(
-      ((visibleExpiry - span.startMs) / (span.endMs - span.startMs)) * 100
-    );
-  });
 });
 
 describe('pickLaneWindow', () => {
@@ -254,10 +230,7 @@ describe('buildTimelineLane', () => {
 
     // Fortnight view: the weekly window, even though the 5-hour resets sooner.
     const weekly = buildTimelineLane({
-      ...base,
-      provider: 'claude',
-      quota,
-      maxPeriodHours: 14 * 24,
+      ...base, provider: 'claude', quota, maxPeriodHours: 14 * 24,
     });
     expect(weekly.anchorMs).toBe(later);
     expect(weekly.periodHours).toBe(168);
@@ -265,10 +238,7 @@ describe('buildTimelineLane', () => {
 
     // Three-day view: the weekly window doesn't fit, so the short one is used.
     const session = buildTimelineLane({
-      ...base,
-      provider: 'claude',
-      quota,
-      maxPeriodHours: 3 * 24,
+      ...base, provider: 'claude', quota, maxPeriodHours: 3 * 24,
     });
     expect(session.anchorMs).toBe(soon);
     expect(session.periodHours).toBe(5);
@@ -278,74 +248,6 @@ describe('buildTimelineLane', () => {
     expect(weekly.limits).toEqual([
       { label: '7-day', remaining: 7 },
       { label: '5-hour', remaining: 80 },
-    ]);
-  });
-
-  test('codex: keeps the weekly lane on the account quota instead of Spark quota', () => {
-    const accountReset = at(2026, 7, 1, 20);
-    const sparkReset = at(2026, 6, 29, 20);
-    const lane = buildTimelineLane({
-      ...base,
-      provider: 'codex',
-      quota: {
-        status: 'success',
-        windows: [
-          {
-            id: 'weekly',
-            label: 'Weekly limit',
-            usedPercent: 70,
-            resetAtMs: accountReset,
-            periodHours: 168,
-          },
-          {
-            id: 'gpt-5-3-codex-spark-weekly-0',
-            label: 'GPT-5.3-Codex-Spark weekly limit',
-            usedPercent: 2,
-            resetAtMs: sparkReset,
-            periodHours: 168,
-          },
-        ],
-      },
-      maxPeriodHours: 14 * 24,
-    });
-
-    expect(lane.anchorMs).toBe(accountReset);
-    expect(lane.periodHours).toBe(168);
-    expect(lane.remaining).toBe(30);
-  });
-
-  test('codex: includes available reset credits with parseable expiry dates', () => {
-    const expiresAt = '2026-08-02T12:00:00Z';
-    const lane = buildTimelineLane({
-      ...base,
-      provider: 'codex',
-      quota: {
-        status: 'success',
-        windows: [{ label: '7-day', usedPercent: 90, resetAtMs: 5000, periodHours: 168 }],
-        rateLimitResetCredits: [
-          {
-            id: 'credit-1',
-            status: 'available',
-            grantedAt: '2026-07-01T12:00:00Z',
-            expiresAt,
-          },
-          {
-            id: 'spent',
-            status: 'consumed',
-            grantedAt: '2026-07-01T12:00:00Z',
-            expiresAt,
-          },
-          { id: 'invalid', status: 'available', grantedAt: '', expiresAt: 'not-a-date' },
-        ],
-      },
-    });
-
-    expect(lane.resetCredits).toEqual([
-      {
-        id: 'credit-1',
-        grantedAtMs: new Date('2026-07-01T12:00:00Z').getTime(),
-        expiresAtMs: new Date(expiresAt).getTime(),
-      },
     ]);
   });
 
@@ -479,9 +381,9 @@ describe('buildTimelineLane', () => {
     });
     expect(laneHasWindow(drawable)).toBe(true);
     // Unloaded quota has nothing to show yet, so it takes no row.
-    expect(
-      laneHasWindow(buildTimelineLane({ ...base, provider: 'claude', quota: undefined }))
-    ).toBe(false);
+    expect(laneHasWindow(buildTimelineLane({ ...base, provider: 'claude', quota: undefined }))).toBe(
+      false
+    );
   });
 
   test('providers with no usable reset produce an empty lane, not a dropped one', () => {
@@ -500,9 +402,7 @@ describe('buildTimelineLane', () => {
   });
 
   test('unloaded or errored quota produces an empty lane', () => {
-    expect(
-      buildTimelineLane({ ...base, provider: 'claude', quota: undefined }).anchorMs
-    ).toBeNull();
+    expect(buildTimelineLane({ ...base, provider: 'claude', quota: undefined }).anchorMs).toBeNull();
     expect(
       buildTimelineLane({ ...base, provider: 'claude', quota: { status: 'error' } }).anchorMs
     ).toBeNull();

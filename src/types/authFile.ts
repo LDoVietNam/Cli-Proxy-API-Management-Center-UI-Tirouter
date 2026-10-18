@@ -12,33 +12,12 @@ export type AuthFileType =
   | 'aistudio'
   | 'claude'
   | 'codex'
-  | 'devin'
-  | 'meta'
   | 'antigravity'
   | 'xai'
   | 'iflow'
   | 'vertex'
   | 'empty'
   | 'unknown';
-
-export interface AuthFileCooldown {
-  scope: 'model' | 'credential';
-  modelKey?: string;
-  reason: string;
-  retryAt: string;
-  remainingSeconds: number;
-  backoffLevel?: number;
-  httpStatus?: number;
-}
-
-export interface AuthFileCooldownSnapshot {
-  /** Server observation time, not the start of the cooldown. */
-  observedAt?: string;
-  /** Local receipt time anchors relative timers without relying on synchronized clocks. */
-  receivedAtMs: number;
-  /** null = runtime state unknown; [] = known, with no active timers. */
-  records: AuthFileCooldown[] | null;
-}
 
 export interface AuthFileItem {
   name: string;
@@ -70,16 +49,38 @@ export interface AuthFileItem {
   /** 归一化后的累计成功/失败计数（由 API 边界从 success/failed 生字段填充）。 */
   successCount?: number;
   failureCount?: number;
+  /** Per-credential cooldown timers normalized from the raw `cooldowns` field. */
+  cooldownSnapshot?: AuthFileCooldownSnapshot;
   recent_requests?: RecentRequestBucket[];
   recentRequests?: RecentRequestBucket[];
-  /** Absent on older servers. Never interpreted as credential health. */
-  cooldownSnapshot?: AuthFileCooldownSnapshot;
   [key: string]: unknown;
+}
+
+export interface AuthFileCooldown {
+  scope: 'model' | 'credential';
+  reason: string;
+  remainingSeconds: number;
+  retryAt?: string;
+  modelKey?: string;
+  backoffLevel?: number;
+  httpStatus?: number;
+}
+
+export interface AuthFileCooldownSnapshot {
+  /**
+   * Null means the backend sent a cooldown payload we cannot interpret
+   * (unknown state); [] means the backend explicitly reports no timers.
+   */
+  records: AuthFileCooldown[] | null;
+  receivedAtMs: number;
+  observedAt?: string;
 }
 
 export interface AuthFilesResponse {
   files: AuthFileItem[];
   total?: number;
+  /** Raw backend observation timestamp (snake_case passthrough). */
   observed_at?: unknown;
+  /** Normalized observed_at (ISO string), when the backend sent a valid one. */
   observedAt?: string;
 }

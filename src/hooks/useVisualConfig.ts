@@ -1,6 +1,5 @@
 import { useCallback, useMemo, useReducer } from 'react';
-import { isMap, isScalar, isSeq, parse as parseYaml, parseDocument } from 'yaml';
-import type { Node, Pair, YAMLMap, YAMLSeq } from 'yaml';
+import { isMap, parse as parseYaml, parseDocument } from 'yaml';
 import type {
   DisableImageGenerationMode,
   PluginStoreAuthApplyTo,
@@ -15,6 +14,7 @@ import type {
   VisualConfigValues,
   VisualConfigValidationErrors,
   PayloadParamValidationErrorCode,
+  LLMDiagnosticsConfig,
 } from '@/types/visualConfig';
 import { DEFAULT_VISUAL_VALUES } from '@/types/visualConfig';
 
@@ -92,9 +92,11 @@ function deleteIfMapEmpty(doc: YamlDocument, path: YamlPath): void {
 }
 
 function setBooleanInDoc(doc: YamlDocument, path: YamlPath, value: boolean): void {
-  // Callers only write dirty fields. Explicit false must override backend defaults
-  // even when the original document omitted the key (for example, ws-auth).
-  doc.setIn(path, value);
+  if (value) {
+    doc.setIn(path, true);
+    return;
+  }
+  if (docHas(doc, path)) doc.setIn(path, false);
 }
 
 function setStringInDoc(doc: YamlDocument, path: YamlPath, value: unknown): void {
@@ -133,7 +135,7 @@ function setIntFromStringInDoc(doc: YamlDocument, path: YamlPath, value: unknown
   }
 
   const parsed = Number(trimmed);
-  if (Number.isSafeInteger(parsed)) {
+  if (Number.isFinite(parsed)) {
     doc.setIn(path, parsed);
     return;
   }
@@ -169,15 +171,11 @@ function hasPayloadDirtyFields(dirtyFields: Set<string>): boolean {
   return PAYLOAD_DIRTY_FIELDS.some((field) => dirtyFields.has(field));
 }
 
-function getIntegerError(value: string): 'integer' | undefined {
-  const trimmed = value.trim();
-  if (!trimmed) return undefined;
-  return /^-?\d+$/.test(trimmed) && Number.isSafeInteger(Number(trimmed)) ? undefined : 'integer';
-}
-
-function getNonNegativeIntegerError(value: string): 'non_negative_integer' | undefined {
-  if (getIntegerError(value)) return 'non_negative_integer';
-  return Number(value.trim()) >= 0 ? undefined : 'non_negative_integer';
+function getNonNegativeIntegerError(value: string | number): 'non_negative_integer' | undefined {
+  const str = String(value).trim();
+  if (!str) return undefined;
+  if (!/^-?\d+$/.test(str)) return 'non_negative_integer';
+  return Number(str) >= 0 ? undefined : 'non_negative_integer';
 }
 
 function getPortError(value: string): 'port_range' | undefined {
@@ -205,12 +203,12 @@ export function getVisualConfigValidationErrors(
     logsMaxTotalSizeMb: getNonNegativeIntegerError(values.logsMaxTotalSizeMb),
     redisUsageQueueRetentionSeconds: getRedisRetentionError(values.redisUsageQueueRetentionSeconds),
     requestRetry: getNonNegativeIntegerError(values.requestRetry),
-    maxRetryCredentials: getIntegerError(values.maxRetryCredentials),
-    maxRetryInterval: getIntegerError(values.maxRetryInterval),
-    authAutoRefreshWorkers: getIntegerError(values.authAutoRefreshWorkers),
-    'streaming.keepaliveSeconds': getIntegerError(values.streaming.keepaliveSeconds),
-    'streaming.bootstrapRetries': getIntegerError(values.streaming.bootstrapRetries),
-    'streaming.nonstreamKeepaliveInterval': getIntegerError(
+    maxRetryCredentials: getNonNegativeIntegerError(values.maxRetryCredentials),
+    maxRetryInterval: getNonNegativeIntegerError(values.maxRetryInterval),
+    authAutoRefreshWorkers: getNonNegativeIntegerError(values.authAutoRefreshWorkers),
+    'streaming.keepaliveSeconds': getNonNegativeIntegerError(values.streaming.keepaliveSeconds),
+    'streaming.bootstrapRetries': getNonNegativeIntegerError(values.streaming.bootstrapRetries),
+    'streaming.nonstreamKeepaliveInterval': getNonNegativeIntegerError(
       values.streaming.nonstreamKeepaliveInterval
     ),
   };
@@ -682,6 +680,28 @@ function serializePayloadParamEntryValue(param: PayloadParamEntry): unknown {
   return param.value;
 }
 
+function serializePayloadHeadersForYaml(headers?: PayloadHeaderEntry[]): Record<string, string> {
+  const result: Record<string, string> = {};
+  for (const header of headers ?? []) {
+    const name = header.name.trim();
+    if (!name) continue;
+    result[name] = header.value;
+  }
+  return result;
+}
+
+function serializePayloadConditionsForYaml(
+  conditions?: PayloadParamEntry[]
+): Array<Record<string, unknown>> {
+  const result: Array<Record<string, unknown>> = [];
+  for (const condition of conditions ?? []) {
+    const path = condition.path.trim();
+    if (!path) continue;
+    result.push({ [path]: serializePayloadParamEntryValue(condition) });
+  }
+  return result;
+}
+
 function serializeStringListForYaml(items?: string[]): string[] {
   return (items ?? []).map((item) => item.trim()).filter(Boolean);
 }
@@ -710,300 +730,81 @@ function serializePluginStoreAuthForYaml(
     .filter((rule): rule is Record<string, unknown> => Boolean(rule));
 }
 
-function mapPair(map: YAMLMap, key: string): Pair | undefined {
-  return map.items.find((pair) => String(isScalar(pair.key) ? pair.key.value : pair.key) === key);
+function serializePayloadModelsForYaml(
+  models: PayloadRule['models']
+): Array<Record<string, unknown>> {
+  return (models || [])
+    .filter((m) => m.name?.trim())
+    .map((m) => {
+      const obj: Record<string, unknown> = { name: m.name.trim() };
+      if (m.protocol) obj.protocol = m.protocol;
+      if (m.fromProtocol) obj['from-protocol'] = m.fromProtocol;
+
+      const headers = serializePayloadHeadersForYaml(m.headers);
+      if (Object.keys(headers).length) obj.headers = headers;
+
+      const match = serializePayloadConditionsForYaml(m.match);
+      if (match.length) obj.match = match;
+
+      const notMatch = serializePayloadConditionsForYaml(m.notMatch);
+      if (notMatch.length) obj['not-match'] = notMatch;
+
+      const exist = serializeStringListForYaml(m.exist);
+      if (exist.length) obj.exist = exist;
+
+      const notExist = serializeStringListForYaml(m.notExist);
+      if (notExist.length) obj['not-exist'] = notExist;
+
+      return obj;
+    });
 }
 
-function preserveNodeComments(previous: Node | null | undefined, next: Node): Node {
-  if (!previous) return next;
-  next.comment = previous.comment;
-  next.commentBefore = previous.commentBefore;
-  next.spaceBefore = previous.spaceBefore;
-  return next;
+function serializePayloadRulesForYaml(rules: PayloadRule[]): Array<Record<string, unknown>> {
+  return rules
+    .map((rule) => {
+      const models = serializePayloadModelsForYaml(rule.models);
+
+      const params: Record<string, unknown> = {};
+      for (const param of rule.params || []) {
+        if (!param.path?.trim()) continue;
+        params[param.path.trim()] = serializePayloadParamEntryValue(param);
+      }
+
+      return { models, params };
+    })
+    .filter((rule) => rule.models.length > 0);
 }
 
-function updatePairValue(doc: YamlDocument, pair: Pair, value: unknown): void {
-  if (isScalar(pair.value) && (value === null || typeof value !== 'object')) {
-    pair.value.value = value;
-    return;
-  }
-  const previous = pair.value && typeof pair.value === 'object' ? (pair.value as Node) : undefined;
-  pair.value = preserveNodeComments(previous, doc.createNode(value));
+function serializePayloadFilterRulesForYaml(
+  rules: PayloadFilterRule[]
+): Array<Record<string, unknown>> {
+  return rules
+    .map((rule) => {
+      const models = serializePayloadModelsForYaml(rule.models);
+
+      const params = (Array.isArray(rule.params) ? rule.params : [])
+        .map((path) => String(path).trim())
+        .filter(Boolean);
+
+      return { models, params };
+    })
+    .filter((rule) => rule.models.length > 0);
 }
 
-function setMapValue(doc: YamlDocument, map: YAMLMap, key: string, value: unknown): void {
-  const pair = mapPair(map, key);
-  if (pair) {
-    updatePairValue(doc, pair, value);
-  } else {
-    map.items.push(doc.createPair(key, value));
-  }
-}
+function serializeRawPayloadRulesForYaml(rules: PayloadRule[]): Array<Record<string, unknown>> {
+  return rules
+    .map((rule) => {
+      const models = serializePayloadModelsForYaml(rule.models);
 
-function deleteMapValue(map: YAMLMap, key: string): void {
-  const pair = mapPair(map, key);
-  if (pair) map.items.splice(map.items.indexOf(pair), 1);
-}
+      const params: Record<string, unknown> = {};
+      for (const param of rule.params || []) {
+        if (!param.path?.trim()) continue;
+        params[param.path.trim()] = param.value;
+      }
 
-function ensureMapValue(doc: YamlDocument, map: YAMLMap, key: string): YAMLMap {
-  const pair = mapPair(map, key);
-  if (pair && isMap(pair.value)) return pair.value;
-  const next = doc.createNode({});
-  if (!isMap(next)) throw new Error('Expected YAML map');
-  if (pair) {
-    pair.value = preserveNodeComments(
-      pair.value && typeof pair.value === 'object' ? (pair.value as Node) : undefined,
-      next
-    );
-  } else {
-    map.items.push(doc.createPair(key, next));
-  }
-  return next;
-}
-
-function ensureSeqValue(doc: YamlDocument, map: YAMLMap, key: string): YAMLSeq {
-  const pair = mapPair(map, key);
-  if (pair && isSeq(pair.value)) return pair.value;
-  const next = doc.createNode([]);
-  if (!isSeq(next)) throw new Error('Expected YAML sequence');
-  if (pair) {
-    pair.value = preserveNodeComments(
-      pair.value && typeof pair.value === 'object' ? (pair.value as Node) : undefined,
-      next
-    );
-  } else {
-    map.items.push(doc.createPair(key, next));
-  }
-  return next;
-}
-
-function replaceSequenceItems(seq: YAMLSeq, items: Node[]): void {
-  const originalItems = [...seq.items] as Node[];
-  const comments = new Map<Node, string | null | undefined>();
-  originalItems.forEach((item, index) => {
-    comments.set(item, index === 0 ? seq.commentBefore : item.commentBefore);
-  });
-
-  items.forEach((item) => {
-    item.commentBefore = comments.get(item);
-  });
-  seq.items = items;
-  seq.commentBefore = items.length > 0 ? items[0].commentBefore : undefined;
-  if (items[0]) items[0].commentBefore = undefined;
-}
-
-function syncStringSequence(
-  doc: YamlDocument,
-  map: YAMLMap,
-  key: string,
-  baseline: string[] | undefined,
-  desired: string[] | undefined
-): void {
-  const values = serializeStringListForYaml(desired);
-  if (values.length === 0) {
-    deleteMapValue(map, key);
-    return;
-  }
-
-  const seq = ensureSeqValue(doc, map, key);
-  const available = (baseline ?? []).map((value, index) => ({ value: value.trim(), index }));
-  const used = new Set<number>();
-  const items = values.map((value) => {
-    const match = available.find((item) => item.value === value && !used.has(item.index));
-    const existing = match ? seq.items[match.index] : undefined;
-    if (match) used.add(match.index);
-    if (isScalar(existing)) {
-      existing.value = value;
-      return existing;
-    }
-    return doc.createNode(value);
-  });
-  replaceSequenceItems(seq, items);
-}
-
-function replaceMapItems(map: YAMLMap, items: Pair[]): void {
-  const originalItems = [...map.items];
-  const comments = new Map<Pair, string | null | undefined>();
-  originalItems.forEach((pair, index) => {
-    const key = pair.key && typeof pair.key === 'object' ? (pair.key as Node) : undefined;
-    comments.set(pair, index === 0 ? map.commentBefore : key?.commentBefore);
-  });
-
-  items.forEach((pair) => {
-    const key = pair.key && typeof pair.key === 'object' ? (pair.key as Node) : undefined;
-    if (key) key.commentBefore = comments.get(pair);
-  });
-  map.items = items;
-  const firstKey = items[0]?.key;
-  const firstKeyNode = firstKey && typeof firstKey === 'object' ? (firstKey as Node) : undefined;
-  map.commentBefore = firstKeyNode?.commentBefore;
-  if (firstKeyNode) firstKeyNode.commentBefore = undefined;
-}
-
-function syncEntryMap<T extends { id: string }>(
-  doc: YamlDocument,
-  map: YAMLMap,
-  baseline: T[],
-  desired: T[],
-  getKey: (entry: T) => string,
-  getValue: (entry: T) => unknown
-): void {
-  const pairsById = new Map<string, Pair>();
-  baseline.forEach((entry) => {
-    const pair = mapPair(map, getKey(entry));
-    if (pair) pairsById.set(entry.id, pair);
-  });
-
-  const managedKeys = new Set(baseline.map((entry) => getKey(entry)));
-  const entries = desired.filter((entry) => getKey(entry).trim());
-  const desiredKeys = new Set(entries.map((entry) => getKey(entry).trim()));
-  const items = entries.map((entry) => {
-    const key = getKey(entry).trim();
-    const pair = pairsById.get(entry.id) ?? doc.createPair(key, getValue(entry));
-    if (isScalar(pair.key)) pair.key.value = key;
-    else pair.key = doc.createNode(key);
-    updatePairValue(doc, pair, getValue(entry));
-    return pair;
-  });
-  const unmanagedItems = map.items.filter((pair) => {
-    const key = String(isScalar(pair.key) ? pair.key.value : pair.key);
-    return !managedKeys.has(key) && !desiredKeys.has(key);
-  });
-  replaceMapItems(map, [...items, ...unmanagedItems]);
-}
-
-function syncConditionSequence(
-  doc: YamlDocument,
-  modelMap: YAMLMap,
-  key: string,
-  baseline: PayloadParamEntry[] | undefined,
-  desired: PayloadParamEntry[] | undefined
-): void {
-  const entries = (desired ?? []).filter((entry) => entry.path.trim());
-  if (entries.length === 0) {
-    deleteMapValue(modelMap, key);
-    return;
-  }
-  const seq = ensureSeqValue(doc, modelMap, key);
-  const nodesById = new Map((baseline ?? []).map((entry, index) => [entry.id, seq.items[index]]));
-  const items = entries.map((entry) => {
-    const existing = nodesById.get(entry.id);
-    const item = isMap(existing) ? existing : (doc.createNode({}) as YAMLMap);
-    const prior = baseline?.find((candidate) => candidate.id === entry.id);
-    syncEntryMap(
-      doc,
-      item,
-      prior ? [prior] : [],
-      [entry],
-      (value) => value.path,
-      (value) => serializePayloadParamEntryValue(value)
-    );
-    return item;
-  });
-  replaceSequenceItems(seq, items);
-}
-
-function syncPayloadModels(
-  doc: YamlDocument,
-  ruleMap: YAMLMap,
-  baseline: PayloadRule['models'],
-  desired: PayloadRule['models']
-): void {
-  const models = desired.filter((model) => model.name.trim());
-  const seq = ensureSeqValue(doc, ruleMap, 'models');
-  const nodesById = new Map(baseline.map((model, index) => [model.id, seq.items[index]]));
-  const items = models.map((model) => {
-    const existing = nodesById.get(model.id);
-    const modelMap = isMap(existing) ? existing : (doc.createNode({}) as YAMLMap);
-    const prior = baseline.find((candidate) => candidate.id === model.id);
-    setMapValue(doc, modelMap, 'name', model.name.trim());
-    if (model.protocol) setMapValue(doc, modelMap, 'protocol', model.protocol);
-    else deleteMapValue(modelMap, 'protocol');
-    if (model.fromProtocol) setMapValue(doc, modelMap, 'from-protocol', model.fromProtocol);
-    else deleteMapValue(modelMap, 'from-protocol');
-
-    const headers = model.headers?.filter((header) => header.name.trim()) ?? [];
-    if (headers.length) {
-      const headersMap = ensureMapValue(doc, modelMap, 'headers');
-      syncEntryMap(
-        doc,
-        headersMap,
-        prior?.headers ?? [],
-        headers,
-        (header) => header.name,
-        (header) => header.value
-      );
-    } else deleteMapValue(modelMap, 'headers');
-
-    syncConditionSequence(doc, modelMap, 'match', prior?.match, model.match);
-    syncConditionSequence(doc, modelMap, 'not-match', prior?.notMatch, model.notMatch);
-    syncStringSequence(doc, modelMap, 'exist', prior?.exist, model.exist);
-    syncStringSequence(doc, modelMap, 'not-exist', prior?.notExist, model.notExist);
-    return modelMap;
-  });
-  replaceSequenceItems(seq, items);
-}
-
-function syncPayloadRuleSequence(
-  doc: YamlDocument,
-  section: string,
-  baseline: PayloadRule[],
-  desired: PayloadRule[],
-  rawValues: boolean
-): void {
-  const payload = doc.getIn(['payload'], true);
-  if (!isMap(payload)) throw new Error('Expected payload map');
-  const rules = desired.filter((rule) => rule.models.some((model) => model.name.trim()));
-  if (rules.length === 0) {
-    deleteMapValue(payload, section);
-    return;
-  }
-
-  const seq = ensureSeqValue(doc, payload, section);
-  const nodesById = new Map(baseline.map((rule, index) => [rule.id, seq.items[index]]));
-  const items = rules.map((rule) => {
-    const existing = nodesById.get(rule.id);
-    const ruleMap = isMap(existing) ? existing : (doc.createNode({}) as YAMLMap);
-    const prior = baseline.find((candidate) => candidate.id === rule.id);
-    syncPayloadModels(doc, ruleMap, prior?.models ?? [], rule.models);
-    const params = ensureMapValue(doc, ruleMap, 'params');
-    syncEntryMap(
-      doc,
-      params,
-      prior?.params ?? [],
-      rule.params,
-      (param) => param.path,
-      (param) => (rawValues ? param.value : serializePayloadParamEntryValue(param))
-    );
-    return ruleMap;
-  });
-  replaceSequenceItems(seq, items);
-}
-
-function syncPayloadFilterSequence(
-  doc: YamlDocument,
-  baseline: PayloadFilterRule[],
-  desired: PayloadFilterRule[]
-): void {
-  const payload = doc.getIn(['payload'], true);
-  if (!isMap(payload)) throw new Error('Expected payload map');
-  const rules = desired.filter((rule) => rule.models.some((model) => model.name.trim()));
-  if (rules.length === 0) {
-    deleteMapValue(payload, 'filter');
-    return;
-  }
-
-  const seq = ensureSeqValue(doc, payload, 'filter');
-  const nodesById = new Map(baseline.map((rule, index) => [rule.id, seq.items[index]]));
-  const items = rules.map((rule) => {
-    const existing = nodesById.get(rule.id);
-    const ruleMap = isMap(existing) ? existing : (doc.createNode({}) as YAMLMap);
-    const prior = baseline.find((candidate) => candidate.id === rule.id);
-    syncPayloadModels(doc, ruleMap, prior?.models ?? [], rule.models);
-    syncStringSequence(doc, ruleMap, 'params', prior?.params, rule.params);
-    return ruleMap;
-  });
-  replaceSequenceItems(seq, items);
+      return { models, params };
+    })
+    .filter((rule) => rule.models.length > 0);
 }
 
 type VisualConfigState = {
@@ -1127,21 +928,6 @@ function getNextDirtyFields(
       areStringArraysEqual(nextValues.pluginStoreSources, baselineValues.pluginStoreSources)
     );
   }
-  if (Object.prototype.hasOwnProperty.call(patch, 'antigravitySensitiveWords')) {
-    updateDirty(
-      'antigravitySensitiveWords',
-      areStringArraysEqual(
-        nextValues.antigravitySensitiveWords,
-        baselineValues.antigravitySensitiveWords
-      )
-    );
-  }
-  if (Object.prototype.hasOwnProperty.call(patch, 'devinSensitiveWords')) {
-    updateDirty(
-      'devinSensitiveWords',
-      areStringArraysEqual(nextValues.devinSensitiveWords, baselineValues.devinSensitiveWords)
-    );
-  }
   if (Object.prototype.hasOwnProperty.call(patch, 'pluginStoreAuth')) {
     updateDirty(
       'pluginStoreAuth',
@@ -1251,7 +1037,7 @@ export function useVisualConfig() {
     undefined,
     createInitialVisualConfigState
   );
-  const { visualValues, baselineValues, visualParseError, dirtyFields } = state;
+  const { visualValues, visualParseError, dirtyFields } = state;
   const visualDirty = dirtyFields.size > 0;
   const visualValidationErrors = useMemo(
     () => getVisualConfigValidationErrors(visualValues),
@@ -1287,10 +1073,38 @@ export function useVisualConfig() {
       const payload = asRecord(parsed.payload);
       const streaming = asRecord(parsed.streaming);
       const plugins = asRecord(parsed.plugins);
-      const antigravity = asRecord(parsed.antigravity);
-      const devin = asRecord(parsed.devin);
       const claudeHeaderDefaults = asRecord(parsed['claude-header-defaults']);
       const codexHeaderDefaults = asRecord(parsed['codex-header-defaults']);
+      const rtk = asRecord(parsed.rtk);
+      const caveman = asRecord(parsed.caveman);
+      const intelligentRouting = asRecord(parsed['intelligent-routing']);
+      const llmRouting = asRecord(parsed['llm-routing'] ?? parsed['llm_routing']);
+      const llmDiagnostics = asRecord(parsed['llm-diagnostics'] ?? parsed['llm_diagnostics']);
+      const llmFixSuggester = asRecord(parsed['llm-fix-suggester'] ?? parsed['llm_fix_suggester']);
+      const llmHealthQuery = asRecord(parsed['llm-health-query'] ?? parsed['llm_health_query']);
+      const llmClient = asRecord(parsed['llm-client'] ?? parsed['llm_client']);
+      const routingHealthCheck = asRecord(parsed['routing-health-check'] ?? parsed['routing_health_check']);
+      const routingCircuitBreaker = asRecord(parsed['routing-circuit-breaker'] ?? parsed['routing_circuit_breaker']);
+      const routingFallback = asRecord(parsed['routing-fallback'] ?? parsed['routing_fallback']);
+      const routingPriorityFailover = asRecord(parsed['routing-priority-failover'] ?? parsed['routing_priority_failover']);
+      const quota = asRecord(parsed.quota) ?? {};
+      const prompts = asRecord(parsed.prompts) ?? {};
+      const promptNorm = asRecord(parsed['prompt-norm'] ?? parsed['prompt_norm']) ?? {};
+      const credentialConcurrency = asRecord(parsed['credential-concurrency'] ?? parsed['credential_concurrency']) ?? {};
+      const credentialInFlight = asRecord(parsed['credential-in-flight'] ?? parsed['credential_in_flight']) ?? {};
+      const aiAgent = asRecord(parsed['ai-agent'] ?? parsed['ai_agent']) ?? {};
+      const xai = asRecord(parsed.xai) ?? {};
+      const pprof = asRecord(parsed.pprof) ?? {};
+      const metrics = asRecord(parsed.metrics) ?? {};
+      const logsRotation = asRecord(parsed['logs-rotation']) ?? {};
+      const semanticCache = asRecord(parsed['semantic-cache']) ?? {};
+      const modelCapabilities = asRecord(parsed['model-capabilities']) ?? {};
+
+      // Ensure nested objects exist
+      const quotaCache = asRecord(quota.cache) ?? {};
+      const quotaAntigravity = asRecord(quota.antigravity) ?? {};
+      const quotaCodex = asRecord(quota.codex) ?? {};
+      const promptsDefaultObj = asRecord(prompts.default) ?? {};
 
       const newValues: VisualConfigValues = {
         host: typeof parsed.host === 'string' ? parsed.host : '',
@@ -1321,7 +1135,6 @@ export function useVisualConfig() {
         pluginStoreAuth: parsePluginStoreAuthRules(plugins?.['store-auth']),
 
         debug: Boolean(parsed.debug),
-        commercialMode: Boolean(parsed['commercial-mode']),
         loggingToFile: Boolean(parsed['logging-to-file']),
         logsMaxTotalSizeMb: String(parsed['logs-max-total-size-mb'] ?? ''),
         errorLogsMaxFiles: String(parsed['error-logs-max-files'] ?? ''),
@@ -1342,14 +1155,7 @@ export function useVisualConfig() {
           typeof parsed['gpt-image-2-base-model'] === 'string'
             ? parsed['gpt-image-2-base-model']
             : '',
-        authAutoRefreshWorkers: String(parsed['auth-auto-refresh-workers'] ?? ''),
-        wsAuth: Boolean(parsed['ws-auth'] ?? DEFAULT_VISUAL_VALUES.wsAuth),
-        antigravitySensitiveWords: parseStringList(antigravity?.['sensitive-words']),
-        devinSensitiveWords: parseStringList(devin?.['sensitive-words']),
-        antigravitySignatureCacheEnabled: Boolean(
-          parsed['antigravity-signature-cache-enabled'] ?? true
-        ),
-        antigravitySignatureBypassStrict: Boolean(parsed['antigravity-signature-bypass-strict']),
+        wsAuth: Boolean(parsed['ws-auth'] ?? true),
 
         claudeHeaderUserAgent:
           typeof claudeHeaderDefaults?.['user-agent'] === 'string'
@@ -1380,12 +1186,8 @@ export function useVisualConfig() {
             ? codexHeaderDefaults['beta-features']
             : '',
 
-        quotaSwitchProject: Boolean(
-          quotaExceeded?.['switch-project'] ?? DEFAULT_VISUAL_VALUES.quotaSwitchProject
-        ),
-        quotaSwitchPreviewModel: Boolean(
-          quotaExceeded?.['switch-preview-model'] ?? DEFAULT_VISUAL_VALUES.quotaSwitchPreviewModel
-        ),
+        quotaSwitchProject: Boolean(quotaExceeded?.['switch-project'] ?? false),
+        quotaSwitchPreviewModel: Boolean(quotaExceeded?.['switch-preview-model'] ?? false),
         quotaAntigravityCredits: Boolean(quotaExceeded?.['antigravity-credits'] ?? false),
 
         routingStrategy: parseRoutingStrategy(routing?.strategy),
@@ -1411,6 +1213,290 @@ export function useVisualConfig() {
           keepaliveSeconds: String(streaming?.['keepalive-seconds'] ?? ''),
           bootstrapRetries: String(streaming?.['bootstrap-retries'] ?? ''),
           nonstreamKeepaliveInterval: String(parsed['nonstream-keepalive-interval'] ?? ''),
+        },
+        rtk: {
+          enabled: Boolean(rtk?.enabled ?? false),
+          ultraMode: Boolean(rtk?.['ultra-mode'] ?? rtk?.ultraMode ?? false),
+          binary: typeof rtk?.binary === 'string' ? rtk.binary : '',
+          poolSize: String(rtk?.['pool-size'] ?? rtk?.poolSize ?? ''),
+          timeout: typeof rtk?.timeout === 'string' ? rtk.timeout : '',
+        },
+        caveman: {
+          enabled: Boolean(caveman?.enabled ?? false),
+          level: (caveman?.level as 'lite' | 'full' | 'ultra') ?? 'full',
+          cacheSize: String(caveman?.['cache-size'] ?? caveman?.cacheSize ?? ''),
+          threshold: Number(caveman?.threshold ?? 0),
+        },
+        // LLM Features
+        intelligentRouting: {
+          enabled: Boolean(intelligentRouting?.enabled ?? false),
+          mode: typeof intelligentRouting?.mode === 'string' ? intelligentRouting.mode : 'local',
+          triggerModels: parseStringList(intelligentRouting?.['trigger-models']),
+          preferredProviders: parseStringList(intelligentRouting?.['preferred-providers']),
+          defaultBudget: typeof intelligentRouting?.['default-budget'] === 'string' ? intelligentRouting['default-budget'] : 'balanced',
+          confidenceThreshold: Number(intelligentRouting?.['confidence-threshold'] ?? 0.7),
+          decisionCacheTTL: typeof intelligentRouting?.['decision-cache-ttl'] === 'string' ? intelligentRouting['decision-cache-ttl'] : '10m',
+          modelAliases: [], // Not parsing from YAML for now
+        },
+        llmRouting: {
+          enabled: Boolean(llmRouting?.enabled ?? false),
+          llmProvider: typeof llmRouting?.['llm-provider'] === 'string' ? llmRouting['llm-provider'] : 'openrouter',
+          llmModel: typeof llmRouting?.['llm-model'] === 'string' ? llmRouting['llm-model'] : 'google/gemini-2.5-flash',
+          cacheTTLSeconds: Number(llmRouting?.['cache-ttl-seconds'] ?? 120),
+          fallbackToStatic: Boolean(llmRouting?.['fallback-to-static'] ?? true),
+          timeoutSeconds: Number(llmRouting?.['timeout-seconds'] ?? 2),
+          costWeight: Number(llmRouting?.['cost-weight'] ?? 0.3),
+          latencyWeight: Number(llmRouting?.['latency-weight'] ?? 0.3),
+          qualityWeight: Number(llmRouting?.['quality-weight'] ?? 0.4),
+          analysisCompression: {
+            enabled: Boolean((llmRouting?.['analysis-compression'] as Record<string, unknown>)?.enabled ?? false),
+            stripNoise: Boolean((llmRouting?.['analysis-compression'] as Record<string, unknown>)?.['strip-noise'] ?? false),
+            compressRepeats: Boolean((llmRouting?.['analysis-compression'] as Record<string, unknown>)?.['compress-repeats'] ?? false),
+            maxPromptChars: Number((llmRouting?.['analysis-compression'] as Record<string, unknown>)?.['max-prompt-chars'] ?? 0),
+          },
+        },
+        llmDiagnostics: (() => {
+          const diag = (llmDiagnostics ?? {}) as Record<string, unknown>;
+          const errorDiag = (diag['error-diagnosis'] as Record<string, unknown>) ?? {};
+          const logAnalysis = (diag['log-analysis'] as Record<string, unknown>) ?? {};
+          return {
+            enabled: Boolean(diag.enabled ?? false),
+            modelHint: typeof diag['model-hint'] === 'string' ? diag['model-hint'] : 'gpt-4o-mini',
+            providerHint: typeof diag['provider-hint'] === 'string' ? diag['provider-hint'] : 'openrouter',
+            errorDiagnosis: {
+              enabled: Boolean(errorDiag.enabled ?? false),
+              captureStackTrace: Boolean(errorDiag['capture-stack-trace'] ?? true),
+              logContextLines: Number(errorDiag['log-context-lines'] ?? 50),
+              minSeverity: typeof errorDiag['min-severity'] === 'string' ? errorDiag['min-severity'] : 'medium',
+              cooldown: typeof errorDiag.cooldown === 'string' ? errorDiag.cooldown : '1h',
+            },
+            logAnalysis: {
+              enabled: Boolean(logAnalysis.enabled ?? false),
+              interval: typeof logAnalysis.interval === 'string' ? logAnalysis.interval : '5m',
+              windowSize: typeof logAnalysis['window-size'] === 'string' ? logAnalysis['window-size'] : '5m',
+              maxEntries: Number(logAnalysis['max-entries'] ?? 100),
+              minSeverity: typeof logAnalysis['min-severity'] === 'string' ? logAnalysis['min-severity'] : 'warn',
+              alertOnAnomaly: Boolean(logAnalysis['alert-on-anomaly'] ?? false),
+            },
+          };
+        })() as LLMDiagnosticsConfig,
+        llmFixSuggester: {
+          enabled: Boolean(llmFixSuggester?.enabled ?? false),
+          recurrenceThreshold: Number(llmFixSuggester?.['recurrence-threshold'] ?? 3),
+          timeWindowHours: Number(llmFixSuggester?.['time-window-hours'] ?? 24),
+          modelHint: typeof llmFixSuggester?.['model-hint'] === 'string' ? llmFixSuggester['model-hint'] : 'gpt-4o-mini',
+          providerHint: typeof llmFixSuggester?.['provider-hint'] === 'string' ? llmFixSuggester['provider-hint'] : 'openrouter',
+        },
+        llmHealthQuery: {
+          enabled: Boolean(llmHealthQuery?.enabled ?? false),
+          modelHint: typeof llmHealthQuery?.['model-hint'] === 'string' ? llmHealthQuery['model-hint'] : 'gpt-4o-mini',
+          providerHint: typeof llmHealthQuery?.['provider-hint'] === 'string' ? llmHealthQuery['provider-hint'] : 'openai',
+          timeoutSeconds: Number(llmHealthQuery?.['timeout-seconds'] ?? 5),
+        },
+        llmClient: {
+          cacheEnabled: Boolean(llmClient?.['cache-enabled'] ?? true),
+          cacheTTL: typeof llmClient?.['cache-ttl'] === 'string' ? llmClient['cache-ttl'] : '5m',
+          cacheMaxItems: Number(llmClient?.['cache-max-items'] ?? 1000),
+          modelHints: llmClient?.['model-hints'] ? Object.fromEntries(Object.entries(llmClient['model-hints']).map(([k, v]) => [k, String(v)])) : {
+            analysis: 'gpt-4o-mini',
+            routing: 'gpt-4o-mini',
+            diagnostics: 'gpt-4o-mini',
+            config_gen: 'gpt-4o-mini',
+            health_query: 'gpt-4o-mini',
+            fix_suggestion: 'gpt-4o-mini',
+          },
+        },
+        // Routing Extended
+        routingHealthCheck: {
+          enabled: Boolean(routingHealthCheck?.enabled ?? true),
+          interval: typeof routingHealthCheck?.interval === 'string' ? routingHealthCheck.interval : '30s',
+          timeout: typeof routingHealthCheck?.timeout === 'string' ? routingHealthCheck.timeout : '5s',
+          failureThreshold: Number(routingHealthCheck?.['failure-threshold'] ?? 3),
+          successThreshold: Number(routingHealthCheck?.['success-threshold'] ?? 2),
+        },
+        routingCircuitBreaker: {
+          enabled: Boolean(routingCircuitBreaker?.enabled ?? true),
+          failureThreshold: Number(routingCircuitBreaker?.['failure-threshold'] ?? 5),
+          successThreshold: Number(routingCircuitBreaker?.['success-threshold'] ?? 2),
+          timeout: typeof routingCircuitBreaker?.timeout === 'string' ? routingCircuitBreaker.timeout : '60s',
+        },
+        routingFallback: {
+          enabled: Boolean(routingFallback?.enabled ?? false),
+          persistToSQLite: Boolean(routingFallback?.['persist-to-sqlite'] ?? false),
+          defaultChains: {}, // Not parsing from YAML for now
+        },
+        routingChains: {}, // Not parsing from YAML for now
+        routingPriorityFailover: {
+          enabled: Boolean(routingPriorityFailover?.enabled ?? false),
+          defaultChain: typeof routingPriorityFailover?.['default-chain'] === 'string' ? routingPriorityFailover['default-chain'] : '',
+          healthCheckInterval: typeof routingPriorityFailover?.['health-check-interval'] === 'string' ? routingPriorityFailover['health-check-interval'] : '',
+          enableManagementAPI: Boolean(routingPriorityFailover?.['enable-management-api'] ?? false),
+        },
+        // Quota Extended
+        quota: {
+          enabled: Boolean(quota?.enabled ?? true),
+          dailyLimit: Number(quota?.['daily-limit'] ?? 0),
+          tokenLimit: Number(quota?.['token-limit'] ?? 0),
+          storeDir: typeof quota?.['store-dir'] === 'string' ? quota['store-dir'] : '',
+          cache: {
+            activeTTL: typeof quotaCache?.['active-ttl'] === 'string' ? quotaCache['active-ttl'] : '5m',
+            exhaustedTTL: typeof quotaCache?.['exhausted-ttl'] === 'string' ? quotaCache['exhausted-ttl'] : '5m',
+            refreshInterval: typeof quotaCache?.['refresh-interval'] === 'string' ? quotaCache['refresh-interval'] : '1m',
+            maxConcurrentRefreshes: Number(quotaCache?.['max-concurrent-refreshes'] ?? 10),
+            persistToSQLite: Boolean(quotaCache?.['persist-to-sqlite'] ?? true),
+          },
+          antigravity: {
+            familyWindows: Boolean(quotaAntigravity?.['family-windows'] ?? true),
+          },
+          codex: {
+            sessionScope: Boolean(quotaCodex?.['session-scope'] ?? true),
+            weeklyScope: Boolean(quotaCodex?.['weekly-scope'] ?? true),
+          },
+        },
+        // Protocol Configs
+        prompts: {
+          enabled: Boolean(prompts?.enabled ?? false),
+          default: {
+            system: typeof promptsDefaultObj?.system === 'string' ? promptsDefaultObj.system : '',
+            systemMode: typeof promptsDefaultObj?.['system-mode'] === 'string' ? promptsDefaultObj['system-mode'] : 'merge',
+            prependUser: typeof promptsDefaultObj?.['prepend-user'] === 'string' ? promptsDefaultObj['prepend-user'] : '',
+            appendUser: typeof promptsDefaultObj?.['append-user'] === 'string' ? promptsDefaultObj['append-user'] : '',
+          },
+          presets: [], // Not parsing from YAML for now
+        },
+        promptNorm: {
+          enabled: Boolean(promptNorm?.enabled ?? false),
+          maxContextTokens: Number(promptNorm?.['max-context-tokens'] ?? 0),
+          preserveLastNBlocks: Number(promptNorm?.['preserve-last-n-blocks'] ?? 0),
+          minDropTokens: Number(promptNorm?.['min-drop-tokens'] ?? 0),
+          maxDropRatio: Number(promptNorm?.['max-drop-ratio'] ?? 0),
+          truncateHeadKeep: Number(promptNorm?.['truncate-head-keep'] ?? 0),
+          truncateTailKeep: Number(promptNorm?.['truncate-tail-keep'] ?? 0),
+          pruneToolResults: Boolean(promptNorm?.['prune-tool-results'] ?? false),
+          selectSystemPrompt: Boolean(promptNorm?.['select-system-prompt'] ?? false),
+          systemPromptMode: typeof promptNorm?.['system-prompt-mode'] === 'string' ? promptNorm['system-prompt-mode'] : 'off',
+          allowPrefixMutation: Boolean(promptNorm?.['allow-prefix-mutation'] ?? false),
+          promptOverrides: promptNorm?.['prompt-overrides'] ? Object.fromEntries(Object.entries(promptNorm['prompt-overrides']).map(([k, v]) => [k, String(v)])) : {},
+          debugLog: Boolean(promptNorm?.['debug-log'] ?? false),
+        },
+        // Advanced
+        credentialConcurrency: {
+          lifecycleConfigRevision: Number(credentialConcurrency?.['lifecycle-config-revision'] ?? 0),
+          observationBarrierRevision: Number(credentialConcurrency?.['observation-barrier-revision'] ?? 0),
+          cpaHeartbeatTimeout: typeof credentialConcurrency?.['cpa-heartbeat-timeout'] === 'string' ? credentialConcurrency['cpa-heartbeat-timeout'] : '3s',
+          cpaCancelBound: typeof credentialConcurrency?.['cpa-cancel-bound'] === 'string' ? credentialConcurrency['cpa-cancel-bound'] : '5s',
+          reclaimGrace: typeof credentialConcurrency?.['reclaim-grace'] === 'string' ? credentialConcurrency['reclaim-grace'] : '5s',
+          cleanupInterval: typeof credentialConcurrency?.['cleanup-interval'] === 'string' ? credentialConcurrency['cleanup-interval'] : '5s',
+          releaseFlushInterval: typeof credentialConcurrency?.['release-flush-interval'] === 'string' ? credentialConcurrency['release-flush-interval'] : '250ms',
+          releaseMaxBackoff: typeof credentialConcurrency?.['release-max-backoff'] === 'string' ? credentialConcurrency['release-max-backoff'] : '2s',
+          busyRetryMin: typeof credentialConcurrency?.['busy-retry-min'] === 'string' ? credentialConcurrency['busy-retry-min'] : '250ms',
+          busyRetryMax: typeof credentialConcurrency?.['busy-retry-max'] === 'string' ? credentialConcurrency['busy-retry-max'] : '1s',
+          maxLimit: Number(credentialConcurrency?.['max-limit'] ?? 1000000),
+        },
+        credentialInFlight: {
+          snapshotInterval: typeof credentialInFlight?.['snapshot-interval'] === 'string' ? credentialInFlight['snapshot-interval'] : '2s',
+          staleAfter: typeof credentialInFlight?.['stale-after'] === 'string' ? credentialInFlight['stale-after'] : '10s',
+          maxPartBytes: Number(credentialInFlight?.['max-part-bytes'] ?? 262144),
+          maxPartCount: Number(credentialInFlight?.['max-part-count'] ?? 64),
+          maxRevisionBytes: Number(credentialInFlight?.['max-revision-bytes'] ?? 16777216),
+          maxAggregateGroups: Number(credentialInFlight?.['max-aggregate-groups'] ?? 100000),
+          maxDetails: Number(credentialInFlight?.['max-details'] ?? 10000),
+          maxStringBytes: Number(credentialInFlight?.['max-string-bytes'] ?? 256),
+          stagingRetention: typeof credentialInFlight?.['staging-retention'] === 'string' ? credentialInFlight['staging-retention'] : '1m',
+        },
+        // Protocol Configs
+        codexHeaderDefaults: {
+          userAgent: typeof codexHeaderDefaults?.['user-agent'] === 'string' ? codexHeaderDefaults['user-agent'] : '',
+          betaFeatures: typeof codexHeaderDefaults?.['beta-features'] === 'string' ? codexHeaderDefaults['beta-features'] : '',
+        },
+        claudeHeaderDefaults: {
+          userAgent: typeof claudeHeaderDefaults?.['user-agent'] === 'string' ? claudeHeaderDefaults['user-agent'] : '',
+          packageVersion: typeof claudeHeaderDefaults?.['package-version'] === 'string' ? claudeHeaderDefaults['package-version'] : '',
+          runtimeVersion: typeof claudeHeaderDefaults?.['runtime-version'] === 'string' ? claudeHeaderDefaults['runtime-version'] : '',
+          os: typeof claudeHeaderDefaults?.os === 'string' ? claudeHeaderDefaults.os : '',
+          arch: typeof claudeHeaderDefaults?.arch === 'string' ? claudeHeaderDefaults.arch : '',
+          timeout: typeof claudeHeaderDefaults?.timeout === 'string' ? claudeHeaderDefaults.timeout : '',
+          stabilizeDeviceProfile: Boolean(claudeHeaderDefaults?.['stabilize-device-profile']),
+        },
+        xai: {
+          liveMediaRelay: {
+            enabled: Boolean((xai as { 'live-media-relay'?: { enabled?: unknown } })?.['live-media-relay']?.enabled ?? false),
+            maxSessions: Number((xai as { 'live-media-relay'?: { 'max-sessions'?: unknown } })?.['live-media-relay']?.['max-sessions'] ?? 0),
+            disablePrivateRemoteIPs: Boolean((xai as { 'live-media-relay'?: { 'disable-private-remote-ips'?: unknown } })?.['live-media-relay']?.['disable-private-remote-ips'] ?? false),
+            publicIP: typeof (xai as { 'live-media-relay'?: { 'public-ip'?: string } })?.['live-media-relay']?.['public-ip'] === 'string' ? (xai as { 'live-media-relay'?: { 'public-ip'?: string } })?.['live-media-relay']?.['public-ip'] ?? '' : '',
+            udpPortMin: Number((xai as { 'live-media-relay'?: { 'udp-port-min'?: unknown } })?.['live-media-relay']?.['udp-port-min'] ?? 0),
+            udpPortMax: Number((xai as { 'live-media-relay'?: { 'udp-port-max'?: unknown } })?.['live-media-relay']?.['udp-port-max'] ?? 0),
+            iceServers: [], // Not parsing from YAML for now
+          },
+        },
+        // Infrastructure
+        tls: {
+          enable: Boolean(tls?.enable),
+          cert: typeof tls?.cert === 'string' ? tls.cert : '',
+          key: typeof tls?.key === 'string' ? tls.key : '',
+        },
+        pprof: {
+          enable: Boolean(pprof?.enabled),
+          addr: typeof pprof?.addr === 'string' ? pprof.addr : '',
+        },
+        metrics: {
+          enabled: Boolean(metrics?.enabled),
+          path: typeof metrics?.path === 'string' ? metrics.path : '/metrics',
+        },
+        logsRotation: {
+          maxSizeMB: Number(logsRotation?.['max-size-mb'] ?? 0),
+          maxAgeDays: Number(logsRotation?.['max-age-days'] ?? 0),
+          maxBackups: Number(logsRotation?.['max-backups'] ?? 0),
+          compress: Boolean(logsRotation?.compress),
+        },
+        semanticCache: {
+          enabled: Boolean(semanticCache?.enabled ?? false),
+          similarityThreshold: Number(semanticCache?.['similarity-threshold'] ?? 0.85),
+          maxEntries: Number(semanticCache?.['max-entries'] ?? 10000),
+          ttl: typeof semanticCache?.ttl === 'string' ? semanticCache.ttl : '24h',
+          embeddingModel: typeof semanticCache?.['embedding-model'] === 'string' ? semanticCache['embedding-model'] : 'bge-small-en-v1.5',
+          embeddingModelPath: typeof semanticCache?.['embedding-model-path'] === 'string' ? semanticCache['embedding-model-path'] : '',
+          tokenizerPath: typeof semanticCache?.['tokenizer-path'] === 'string' ? semanticCache['tokenizer-path'] : '',
+          cacheDir: typeof semanticCache?.['cache-dir'] === 'string' ? semanticCache['cache-dir'] : '',
+          onlyCache2xx: Boolean(semanticCache?.['only-cache-2xx'] ?? true),
+          excludeReasoningModels: Boolean(semanticCache?.['exclude-reasoning-models'] ?? true),
+        },
+        modelCapabilities: {
+          enabled: Boolean((modelCapabilities as Record<string, unknown>)?.enabled ?? false),
+          autoDiscover: Boolean((modelCapabilities as Record<string, unknown>)?.['auto-discover'] ?? false),
+          persistToSQLite: Boolean((modelCapabilities as Record<string, unknown>)?.['persist-to-sqlite'] ?? false),
+          cacheTTL: typeof (modelCapabilities as Record<string, unknown>)?.['cache-ttl'] === 'string' ? (modelCapabilities as Record<string, unknown>)['cache-ttl'] as string : '',
+          costRules: {
+            enabled: Boolean(((modelCapabilities as Record<string, unknown>)?.['cost-rules'] as Record<string, unknown>)?.enabled ?? false),
+            monthlyBudgetUSD: Number(((modelCapabilities as Record<string, unknown>)?.['cost-rules'] as Record<string, unknown>)?.['monthly-budget-usd'] ?? 0),
+            rules: [], // Not parsing from YAML for now
+          },
+        },
+        // Simple fields
+        transientErrorCooldownSeconds: Number(parsed['transient-error-cooldown-seconds'] ?? 0),
+        authAutoRefreshWorkers: String(parsed['auth-auto-refresh-workers'] ?? ''),
+        tokenRotationEnabled: Boolean(parsed['token-rotation-enabled'] ?? false),
+        tokenRotationRefreshBufferSeconds: Number(parsed['token-rotation-refresh-buffer-seconds'] ?? 0),
+        commercialMode: Boolean(parsed['commercial-mode'] ?? false),
+        antigravitySignatureCacheEnabled: parsed['antigravity-signature-cache-enabled'] !== undefined ? Boolean(parsed['antigravity-signature-cache-enabled']) : true,
+        antigravitySignatureBypassStrict: Boolean(parsed['antigravity-signature-bypass-strict'] ?? false),
+        disableClaudeCloakMode: Boolean(parsed['disable-claude-cloak-mode'] ?? false),
+        // Advanced section fields
+        antigravitySensitiveWords: parseStringList(parsed['antigravity-sensitive-words']),
+        devinSensitiveWords: parseStringList(parsed['devin-sensitive-words']),
+        // aiAgent
+        aiAgent: {
+          enabled: Boolean(aiAgent?.enabled ?? false),
+          mode: typeof aiAgent?.mode === 'string' ? aiAgent.mode : 'integrated',
+          routingBackend: typeof aiAgent?.['routing-backend'] === 'string' ? aiAgent['routing-backend'] : 'tiagent',
+          tiAgentURL: typeof aiAgent?.['tiagent-url'] === 'string' ? aiAgent['tiagent-url'] : '',
+          tiAgentTimeout: Number(aiAgent?.['tiagent-timeout'] ?? 30),
+          fallbackToStatic: Boolean(aiAgent?.['fallback-to-static'] ?? true),
+          cacheTTLSeconds: Number(aiAgent?.['cache-ttl-seconds'] ?? 120),
+          defaultProvider: typeof aiAgent?.['default-provider'] === 'string' ? aiAgent['default-provider'] : '',
+          costWeight: Number(aiAgent?.['cost-weight'] ?? 0.3),
+          latencyWeight: Number(aiAgent?.['latency-weight'] ?? 0.3),
+          qualityWeight: Number(aiAgent?.['quality-weight'] ?? 0.4),
         },
       };
 
@@ -1583,29 +1669,12 @@ export function useVisualConfig() {
         if (dirtyFields.has('authAutoRefreshWorkers')) {
           setIntFromStringInDoc(doc, ['auth-auto-refresh-workers'], values.authAutoRefreshWorkers);
         }
-        if (dirtyFields.has('wsAuth')) setBooleanInDoc(doc, ['ws-auth'], values.wsAuth);
-        if (dirtyFields.has('antigravitySensitiveWords')) {
-          ensureMapInDoc(doc, ['antigravity']);
-          setStringListInDoc(
-            doc,
-            ['antigravity', 'sensitive-words'],
-            values.antigravitySensitiveWords
-          );
-          deleteIfMapEmpty(doc, ['antigravity']);
-        }
-        if (dirtyFields.has('devinSensitiveWords')) {
-          ensureMapInDoc(doc, ['devin']);
-          const devin = doc.getIn(['devin'], true);
-          if (isMap(devin)) {
-            syncStringSequence(
-              doc,
-              devin,
-              'sensitive-words',
-              baselineValues.devinSensitiveWords,
-              values.devinSensitiveWords
-            );
-          }
-          deleteIfMapEmpty(doc, ['devin']);
+        // ws-auth backend-defaults to true, so an explicit false must be
+        // materialized even when the key is absent (setBooleanInDoc alone
+        // would skip it, losing the user's choice).
+        if (dirtyFields.has('wsAuth')) {
+          if (values.wsAuth) setBooleanInDoc(doc, ['ws-auth'], true);
+          else doc.setIn(['ws-auth'], false);
         }
         if (dirtyFields.has('antigravitySignatureCacheEnabled')) {
           if (
@@ -1768,50 +1837,101 @@ export function useVisualConfig() {
           setIntFromStringInDoc(doc, ['nonstream-keepalive-interval'], nonstreamKeepaliveInterval);
         }
 
+        const rtkDirty =
+          dirtyFields.has('rtk.enabled') ||
+          dirtyFields.has('rtk.ultraMode') ||
+          dirtyFields.has('rtk.binary') ||
+          dirtyFields.has('rtk.poolSize') ||
+          dirtyFields.has('rtk.timeout');
+        if (rtkDirty) {
+          ensureMapInDoc(doc, ['rtk']);
+          if (dirtyFields.has('rtk.enabled')) {
+            setBooleanInDoc(doc, ['rtk', 'enabled'], values.rtk.enabled);
+          }
+          if (dirtyFields.has('rtk.ultraMode')) {
+            setBooleanInDoc(doc, ['rtk', 'ultra-mode'], values.rtk.ultraMode);
+          }
+          if (dirtyFields.has('rtk.binary')) {
+            setStringInDoc(doc, ['rtk', 'binary'], values.rtk.binary);
+          }
+          if (dirtyFields.has('rtk.poolSize')) {
+            setStringInDoc(doc, ['rtk', 'pool-size'], values.rtk.poolSize);
+          }
+          if (dirtyFields.has('rtk.timeout')) {
+            setStringInDoc(doc, ['rtk', 'timeout'], values.rtk.timeout);
+          }
+          deleteIfMapEmpty(doc, ['rtk']);
+        }
+
+        const cavemanDirty =
+          dirtyFields.has('caveman.enabled') ||
+          dirtyFields.has('caveman.level') ||
+          dirtyFields.has('caveman.cacheSize');
+        if (cavemanDirty) {
+          ensureMapInDoc(doc, ['caveman']);
+          if (dirtyFields.has('caveman.enabled')) {
+            setBooleanInDoc(doc, ['caveman', 'enabled'], values.caveman.enabled);
+          }
+          if (dirtyFields.has('caveman.level')) {
+            setStringInDoc(doc, ['caveman', 'level'], values.caveman.level);
+          }
+          if (dirtyFields.has('caveman.cacheSize')) {
+            setStringInDoc(doc, ['caveman', 'cache-size'], values.caveman.cacheSize);
+          }
+          deleteIfMapEmpty(doc, ['caveman']);
+        }
+
         if (hasPayloadDirtyFields(dirtyFields)) {
           ensureMapInDoc(doc, ['payload']);
           if (dirtyFields.has('payloadDefaultRules')) {
-            syncPayloadRuleSequence(
-              doc,
-              'default',
-              baselineValues.payloadDefaultRules,
-              values.payloadDefaultRules,
-              false
-            );
+            if (values.payloadDefaultRules.length > 0) {
+              doc.setIn(
+                ['payload', 'default'],
+                serializePayloadRulesForYaml(values.payloadDefaultRules)
+              );
+            } else if (docHas(doc, ['payload', 'default'])) {
+              doc.deleteIn(['payload', 'default']);
+            }
           }
           if (dirtyFields.has('payloadDefaultRawRules')) {
-            syncPayloadRuleSequence(
-              doc,
-              'default-raw',
-              baselineValues.payloadDefaultRawRules,
-              values.payloadDefaultRawRules,
-              true
-            );
+            if (values.payloadDefaultRawRules.length > 0) {
+              doc.setIn(
+                ['payload', 'default-raw'],
+                serializeRawPayloadRulesForYaml(values.payloadDefaultRawRules)
+              );
+            } else if (docHas(doc, ['payload', 'default-raw'])) {
+              doc.deleteIn(['payload', 'default-raw']);
+            }
           }
           if (dirtyFields.has('payloadOverrideRules')) {
-            syncPayloadRuleSequence(
-              doc,
-              'override',
-              baselineValues.payloadOverrideRules,
-              values.payloadOverrideRules,
-              false
-            );
+            if (values.payloadOverrideRules.length > 0) {
+              doc.setIn(
+                ['payload', 'override'],
+                serializePayloadRulesForYaml(values.payloadOverrideRules)
+              );
+            } else if (docHas(doc, ['payload', 'override'])) {
+              doc.deleteIn(['payload', 'override']);
+            }
           }
           if (dirtyFields.has('payloadOverrideRawRules')) {
-            syncPayloadRuleSequence(
-              doc,
-              'override-raw',
-              baselineValues.payloadOverrideRawRules,
-              values.payloadOverrideRawRules,
-              true
-            );
+            if (values.payloadOverrideRawRules.length > 0) {
+              doc.setIn(
+                ['payload', 'override-raw'],
+                serializeRawPayloadRulesForYaml(values.payloadOverrideRawRules)
+              );
+            } else if (docHas(doc, ['payload', 'override-raw'])) {
+              doc.deleteIn(['payload', 'override-raw']);
+            }
           }
           if (dirtyFields.has('payloadFilterRules')) {
-            syncPayloadFilterSequence(
-              doc,
-              baselineValues.payloadFilterRules,
-              values.payloadFilterRules
-            );
+            if (values.payloadFilterRules.length > 0) {
+              doc.setIn(
+                ['payload', 'filter'],
+                serializePayloadFilterRulesForYaml(values.payloadFilterRules)
+              );
+            } else if (docHas(doc, ['payload', 'filter'])) {
+              doc.deleteIn(['payload', 'filter']);
+            }
           }
           deleteIfMapEmpty(doc, ['payload']);
         }
@@ -1821,7 +1941,7 @@ export function useVisualConfig() {
         return currentYaml;
       }
     },
-    [baselineValues, dirtyFields, visualValues]
+    [dirtyFields, visualValues]
   );
 
   const setVisualValues = useCallback((newValues: Partial<VisualConfigValues>) => {
@@ -1831,8 +1951,7 @@ export function useVisualConfig() {
   return {
     visualValues,
     visualDirty,
-    /** 脏字段的叶值键集合（streaming 为点号叶），供 tab 脏点 / 头部计数消费。 */
-    visualDirtyFields: dirtyFields as ReadonlySet<string>,
+    visualDirtyFields: dirtyFields,
     visualParseError,
     visualValidationErrors,
     visualHasPayloadValidationErrors,

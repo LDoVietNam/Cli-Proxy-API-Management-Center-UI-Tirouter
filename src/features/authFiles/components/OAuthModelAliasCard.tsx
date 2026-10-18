@@ -2,6 +2,7 @@ import { useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/Button';
 import { EmptyState } from '@/components/ui/EmptyState';
+import { Skeleton } from '@/components/ui/Skeleton';
 import { ModelMappingDiagram, type ModelMappingDiagramRef } from '@/components/modelAlias';
 import { IconChevronUp } from '@/components/ui/icons';
 import type { OAuthModelAliasEntry } from '@/types';
@@ -9,6 +10,8 @@ import type { AuthFileModelItem, OAuthConfigLoadError } from '@/features/authFil
 import styles from './OAuthConfigPanels.module.scss';
 
 type ViewMode = 'diagram' | 'list';
+
+const PANEL_SKELETON_ROWS = 3;
 
 export type OAuthModelAliasCardProps = {
   disableControls: boolean;
@@ -100,7 +103,11 @@ export function OAuthModelAliasCard(props: OAuthModelAliasCardProps) {
             }
           />
         ) : modelAliasError === 'loading' ? (
-          <EmptyState title={t('common.loading')} />
+          <div className={styles.skeletonList} aria-hidden="true">
+            {Array.from({ length: PANEL_SKELETON_ROWS }, (_, index) => (
+              <Skeleton key={index} height={48} rounded={10} />
+            ))}
+          </div>
         ) : viewMode === 'diagram' ? (
           Object.keys(modelAlias).length === 0 ? (
             <EmptyState title={t('oauth_model_alias.list_empty_all')} />

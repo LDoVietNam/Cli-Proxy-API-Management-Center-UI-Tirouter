@@ -41,14 +41,14 @@
   padding: 2px;
   border-radius: $radius-full;
   border: 1px solid var(--border-color);
-  background: var(--bg-tertiary);
+  background: var(--bg-secondary);
 }
 
 .segment {
   border: 0;
   background: none;
   cursor: pointer;
-  padding: 5px 12px;
+  padding: 6px 12px;
   border-radius: $radius-full;
   font-size: 12px;
   font-weight: 550;
@@ -58,7 +58,6 @@
   transition:
     color var(--dur-hover, 200ms) var(--ease-out-strong, ease-out),
     background-color var(--dur-hover, 200ms) var(--ease-out-strong, ease-out),
-    box-shadow var(--dur-hover, 200ms) var(--ease-out-strong, ease-out),
     transform var(--dur-press, 160ms) var(--ease-out-strong, ease-out);
 
   &:active {
@@ -72,7 +71,7 @@
 }
 
 @media (hover: hover) and (pointer: fine) {
-  .segment:hover:not(.segmentActive) {
+  .segment:hover {
     color: var(--text-primary);
   }
 }
@@ -80,22 +79,12 @@
 .segmentActive {
   color: var(--text-primary);
   font-weight: 650;
-  background: var(--floating-surface, var(--bg-primary));
-  box-shadow:
-    0 1px 3px rgba(0, 0, 0, 0.12),
-    0 1px 2px rgba(0, 0, 0, 0.08);
+  background: var(--bg-primary);
+  box-shadow: var(--shadow);
 }
 
 .segmentProblem.segmentActive {
   color: var(--danger-color);
-  background: color-mix(
-    in srgb,
-    var(--danger-color) 12%,
-    var(--floating-surface, var(--bg-primary))
-  );
-  box-shadow:
-    0 1px 3px color-mix(in srgb, var(--danger-color) 20%, transparent),
-    0 1px 2px rgba(0, 0, 0, 0.06);
 }
 
 /* ---------- 排序 ---------- */
@@ -203,6 +192,54 @@
     outline: none;
     border-color: var(--primary-color);
     box-shadow: 0 0 0 3px var(--primary-10);
+  }
+}
+
+/* ---------- Thêm auth / upload ---------- */
+
+.addAction {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.addButton,
+.uploadButton {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 32px;
+  padding: 0 12px;
+  border-radius: $radius-full;
+  border: 1px solid var(--border-color);
+  background: var(--bg-secondary);
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 550;
+  color: var(--text-secondary);
+  white-space: nowrap;
+  transition:
+    color var(--dur-hover, 200ms) var(--ease-out-strong, ease-out),
+    background-color var(--dur-hover, 200ms) var(--ease-out-strong, ease-out),
+    border-color var(--dur-hover, 200ms) var(--ease-out-strong, ease-out),
+    transform var(--dur-press, 160ms) var(--ease-out-strong, ease-out);
+
+  &:focus-visible {
+    outline: 2px solid var(--primary-color);
+    outline-offset: 1px;
+  }
+
+  &:active {
+    transform: scale(0.96);
+  }
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .addButton:hover,
+  .uploadButton:hover {
+    color: var(--text-primary);
+    border-color: var(--border-hover);
+    background: var(--bg-primary);
   }
 }
 

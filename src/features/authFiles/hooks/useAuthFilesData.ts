@@ -1,9 +1,12 @@
 import { useCallback, useEffect, useRef, useState, type ChangeEvent, type RefObject } from 'react';
 import { useTranslation } from 'react-i18next';
 import { authFilesApi } from '@/services/api';
-import { notifyAuthFilesChanged } from '@/features/authFiles/authFilesEvents';
+import {
+  AUTH_FILES_CHANGED_EVENT,
+  notifyAuthFilesChanged,
+} from '@/features/authFiles/authFilesEvents';
 import { useNotificationStore } from '@/stores';
-import type { AuthFileItem } from '@/types';
+import type { AuthFileItem, ApiError } from '@/types';
 import { formatFileSize } from '@/utils/format';
 import { MAX_AUTH_FILE_SIZE } from '@/utils/constants';
 import { downloadBlob } from '@/utils/download';
@@ -24,6 +27,47 @@ type DeleteAllOptions = {
   onResetProblemOnly: () => void;
   onResetDisabledOnly: () => void;
   onResetEnabledOnly: () => void;
+};
+
+/**
+ * Extracts a user-friendly error message from an API error.
+ * Handles 409 Conflict specifically for plugin virtual auth files.
+ */
+const extractDeleteErrorMessage = (err: unknown, t: (key: string, options?: Record<string, unknown>) => string): string => {
+  if (!err || typeof err !== 'object') {
+    return t('notification.delete_failed');
+  }
+
+  const apiError = err as ApiError;
+  const status = apiError.status;
+  const apiCode = apiError.apiCode;
+  const details = apiError.details;
+
+  // Handle 409 Conflict - plugin virtual auth cannot be deleted directly
+  if (status === 409 || apiCode === 'conflict') {
+    // Try to get the specific error message from the backend response
+    if (details && typeof details === 'object' && 'error' in details) {
+      const errorValue = (details as Record<string, unknown>).error;
+      if (typeof errorValue === 'string' && errorValue.trim()) {
+        return errorValue.trim();
+      }
+      if (errorValue && typeof errorValue === 'object' && 'message' in errorValue) {
+        const msg = (errorValue as Record<string, unknown>).message;
+        if (typeof msg === 'string' && msg.trim()) {
+          return msg.trim();
+        }
+      }
+    }
+    // Fallback to the error message on the error object
+    if (apiError.message) {
+      return apiError.message;
+    }
+    // Generic fallback for 409
+    return t('auth_files.delete_virtual_auth_error', { defaultValue: 'Plugin virtual auth cannot be modified directly; edit or delete the source auth file' });
+  }
+
+  // For other errors, return the error message or generic failure
+  return apiError.message || t('notification.delete_failed');
 };
 
 export type LoadFilesOptions = {
@@ -218,6 +262,16 @@ export function useAuthFilesData(options?: UseAuthFilesDataOptions): UseAuthFile
     [t]
   );
 
+  useEffect(() => {
+    const handler = () => {
+      void loadFiles({ background: true });
+    };
+    window.addEventListener(AUTH_FILES_CHANGED_EVENT, handler);
+    return () => {
+      window.removeEventListener(AUTH_FILES_CHANGED_EVENT, handler);
+    };
+  }, [loadFiles]);
+
   const handleUploadClick = useCallback(() => {
     if (uploadPendingRef.current) return;
     fileInputRef.current?.click();
@@ -312,8 +366,8 @@ export function useAuthFilesData(options?: UseAuthFilesDataOptions): UseAuthFile
             applyDeletedFiles(result.files.length > 0 ? result.files : [name]);
             if (result.deleted > 0) notifyAuthFilesChanged();
           } catch (err: unknown) {
-            const errorMessage = err instanceof Error ? err.message : '';
-            showNotification(`${t('notification.delete_failed')}: ${errorMessage}`, 'error');
+            const errorMessage = extractDeleteErrorMessage(err, t);
+            showNotification(errorMessage, 'error');
           } finally {
             setDeleting(null);
           }
@@ -460,8 +514,8 @@ export function useAuthFilesData(options?: UseAuthFilesDataOptions): UseAuthFile
               }
             }
           } catch (err: unknown) {
-            const errorMessage = err instanceof Error ? err.message : '';
-            showNotification(`${t('notification.delete_failed')}: ${errorMessage}`, 'error');
+            const errorMessage = extractDeleteErrorMessage(err, t);
+            showNotification(errorMessage, 'error');
           } finally {
             setDeletingAll(false);
           }
@@ -728,8 +782,8 @@ export function useAuthFilesData(options?: UseAuthFilesDataOptions): UseAuthFile
               );
             }
           } catch (err: unknown) {
-            const errorMessage = err instanceof Error ? err.message : '';
-            showNotification(`${t('notification.delete_failed')}: ${errorMessage}`, 'error');
+            const errorMessage = extractDeleteErrorMessage(err, t);
+            showNotification(errorMessage, 'error');
           }
         },
       });

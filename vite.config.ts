@@ -39,9 +39,7 @@ function getVersion(): string {
 export default defineConfig({
   plugins: [
     react(),
-    viteSingleFile({
-      removeViteModuleLoader: true
-    })
+    viteSingleFile(),
   ],
   define: {
     __APP_VERSION__: JSON.stringify(getVersion())
@@ -65,13 +63,14 @@ export default defineConfig({
   build: {
     target: 'es2020',
     outDir: 'dist',
-    assetsInlineLimit: 100000000,
+    assetsInlineLimit: 51200,
     chunkSizeWarningLimit: 100000000,
     cssCodeSplit: false,
-    rolldownOptions: {
+    reportCompressedSize: false,
+    rollupOptions: {
       output: {
-        codeSplitting: false
-      }
-    }
-  }
+        inlineDynamicImports: true,
+      },
+    },
+  },
 });

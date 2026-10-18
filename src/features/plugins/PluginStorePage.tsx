@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/Button';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { Input } from '@/components/ui/Input';
+import { Skeleton } from '@/components/ui/Skeleton';
 import { Modal } from '@/components/ui/Modal';
 import { Select } from '@/components/ui/Select';
 import {
@@ -1124,13 +1125,13 @@ export function PluginStorePage() {
           {Array.from({ length: 6 }, (_, index) => (
             <div key={index} className={styles.skeletonCard}>
               <div className={styles.skeletonHeader}>
-                <div className={styles.skeletonAvatar} />
+                <Skeleton width={40} height={40} rounded={10} />
                 <div className={styles.skeletonText}>
-                  <div className={styles.skeletonLine} />
-                  <div className={styles.skeletonLine} />
+                  <Skeleton width="45%" height={14} />
+                  <Skeleton width="70%" height={10} />
                 </div>
               </div>
-              <div className={styles.skeletonBody} />
+              <Skeleton height={56} />
             </div>
           ))}
         </div>

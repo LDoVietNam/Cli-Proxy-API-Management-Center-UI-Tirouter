@@ -1,8 +1,11 @@
 import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/Button';
 import { EmptyState } from '@/components/ui/EmptyState';
+import { Skeleton } from '@/components/ui/Skeleton';
 import type { OAuthConfigLoadError } from '@/features/authFiles/constants';
 import styles from './OAuthConfigPanels.module.scss';
+
+const PANEL_SKELETON_ROWS = 3;
 
 export type OAuthExcludedCardProps = {
   disableControls: boolean;
@@ -44,7 +47,11 @@ export function OAuthExcludedCard(props: OAuthExcludedCardProps) {
             }
           />
         ) : excludedError === 'loading' ? (
-          <EmptyState title={t('common.loading')} />
+          <div className={styles.skeletonList} aria-hidden="true">
+            {Array.from({ length: PANEL_SKELETON_ROWS }, (_, index) => (
+              <Skeleton key={index} height={48} rounded={10} />
+            ))}
+          </div>
         ) : Object.keys(excluded).length === 0 ? (
           <EmptyState title={t('oauth_excluded.list_empty_all')} />
         ) : (

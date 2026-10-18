@@ -5,8 +5,8 @@ import { runVisualConfig } from './helpers/visualConfig';
 // Backend contract: config_load.go defaults WebsocketAuth to true; QuotaExceeded
 // uses Go's false zero values. config.example.yaml values are not missing-key defaults.
 describe('visual config boolean defaults', () => {
-  test('initial and missing-key values agree with backend defaults', () => {
-    for (const config of [runVisualConfig(), runVisualConfig('port: 8317\n')]) {
+  test('initial and missing-key values agree with backend defaults', async () => {
+    for (const config of [await runVisualConfig(), await runVisualConfig('port: 8317\n')]) {
       expect(config.visualValues.wsAuth).toBe(true);
       expect(config.visualValues.quotaSwitchProject).toBe(false);
       expect(config.visualValues.quotaSwitchPreviewModel).toBe(false);
@@ -15,13 +15,13 @@ describe('visual config boolean defaults', () => {
   });
 
   for (const enabled of [true, false]) {
-    test(`preserves explicit boolean values: ${enabled}`, () => {
+    test(`preserves explicit boolean values: ${enabled}`, async () => {
       const yaml = `ws-auth: ${enabled}
 quota-exceeded:
   switch-project: ${enabled}
   switch-preview-model: ${enabled}
 `;
-      const config = runVisualConfig(yaml);
+      const config = await runVisualConfig(yaml);
       expect(config.visualValues.wsAuth).toBe(enabled);
       expect(config.visualValues.quotaSwitchProject).toBe(enabled);
       expect(config.visualValues.quotaSwitchPreviewModel).toBe(enabled);
@@ -29,9 +29,9 @@ quota-exceeded:
     });
   }
 
-  test('writes explicit false when disabling omitted ws-auth', () => {
+  test('writes explicit false when disabling omitted ws-auth', async () => {
     const yaml = 'port: 8317\n';
-    const config = runVisualConfig(yaml, [{ wsAuth: false }]);
+    const config = await runVisualConfig(yaml, [{ wsAuth: false }]);
     expect([...config.visualDirtyFields]).toEqual(['wsAuth']);
     expect(parseYaml(config.applyVisualChangesToYaml(yaml))).toEqual({
       port: 8317,
@@ -39,9 +39,9 @@ quota-exceeded:
     });
   });
 
-  test('writes enabled quota options when their block was omitted', () => {
+  test('writes enabled quota options when their block was omitted', async () => {
     const yaml = 'port: 8317\n';
-    const config = runVisualConfig(yaml, [
+    const config = await runVisualConfig(yaml, [
       { quotaSwitchProject: true, quotaSwitchPreviewModel: true },
     ]);
     expect(parseYaml(config.applyVisualChangesToYaml(yaml))).toEqual({
@@ -50,7 +50,7 @@ quota-exceeded:
     });
   });
 
-  test('writes toggles in both directions without changing unrelated settings', () => {
+  test('writes toggles in both directions without changing unrelated settings', async () => {
     for (const enabled of [true, false]) {
       const yaml = `ws-auth: ${!enabled}
 quota-exceeded:
@@ -58,7 +58,7 @@ quota-exceeded:
   switch-preview-model: ${!enabled}
   antigravity-credits: true
 `;
-      const config = runVisualConfig(yaml, [
+      const config = await runVisualConfig(yaml, [
         { wsAuth: enabled, quotaSwitchProject: enabled, quotaSwitchPreviewModel: enabled },
       ]);
       expect(parseYaml(config.applyVisualChangesToYaml(yaml))).toEqual({
@@ -72,9 +72,9 @@ quota-exceeded:
     }
   });
 
-  test('reverting toggles clears dirty state without inserting missing keys', () => {
+  test('reverting toggles clears dirty state without inserting missing keys', async () => {
     const yaml = 'port: 8317\n';
-    const config = runVisualConfig(yaml, [
+    const config = await runVisualConfig(yaml, [
       { wsAuth: false, quotaSwitchProject: true, quotaSwitchPreviewModel: true },
       { wsAuth: true, quotaSwitchProject: false, quotaSwitchPreviewModel: false },
     ]);
@@ -83,9 +83,9 @@ quota-exceeded:
     expect(config.applyVisualChangesToYaml(yaml)).toBe(yaml);
   });
 
-  test('unrelated edits do not materialize boolean defaults', () => {
+  test('unrelated edits do not materialize boolean defaults', async () => {
     const yaml = 'port: 8317\n';
-    const config = runVisualConfig(yaml, [{ debug: true }]);
+    const config = await runVisualConfig(yaml, [{ debug: true }]);
     expect(parseYaml(config.applyVisualChangesToYaml(yaml))).toEqual({ port: 8317, debug: true });
   });
 });

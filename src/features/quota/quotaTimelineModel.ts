@@ -10,10 +10,10 @@
  * week, and no per-card percentage shows that.
  */
 
-import { DAY_MS, HOUR_MS } from '@/utils/time/durations';
 import type { QuotaProviderType } from './providers/types';
 
-export { DAY_MS, HOUR_MS };
+export const HOUR_MS = 3_600_000;
+export const DAY_MS = 24 * HOUR_MS;
 
 /** Weekly view spans a fortnight; the session view zooms to three days. */
 export type TimelineMode = 'weekly' | 'session';
@@ -33,18 +33,6 @@ export interface TimelineLimit {
   remaining: number;
 }
 
-/** A manual quota-reset credit attached to a Codex credential. */
-export interface TimelineResetCredit {
-  id: string;
-  grantedAtMs: number | null;
-  expiresAtMs: number;
-}
-
-/** A reset-credit expiry projected onto the visible span. */
-export interface TimelineResetCreditMark extends TimelineResetCredit {
-  leftPercent: number;
-}
-
 /** One credential's row in the chart. */
 export interface TimelineLane {
   name: string;
@@ -57,7 +45,6 @@ export interface TimelineLane {
   /** Remaining percent reported for the window ending at `anchorMs`. */
   remaining: number | null;
   limits: TimelineLimit[];
-  resetCredits: TimelineResetCredit[];
 }
 
 /** One drawn bar: a single window occurrence within the visible span. */
@@ -187,29 +174,6 @@ export function projectLane(
     .filter((window): window is TimelineWindow => window !== null);
 }
 
-/** Project unexpired reset-credit expiry instants onto the visible span. */
-export function projectResetCredits(
-  lane: TimelineLane,
-  spanStartMs: number,
-  spanEndMs: number,
-  now: number
-): TimelineResetCreditMark[] {
-  const span = spanEndMs - spanStartMs;
-  if (span <= 0) return [];
-
-  return lane.resetCredits
-    .filter(
-      (credit) =>
-        credit.expiresAtMs > now &&
-        credit.expiresAtMs >= spanStartMs &&
-        credit.expiresAtMs < spanEndMs
-    )
-    .map((credit) => ({
-      ...credit,
-      leftPercent: ((credit.expiresAtMs - spanStartMs) / span) * 100,
-    }));
-}
-
 /**
  * Pick the window a lane is drawn from: the one whose period best fits the
  * visible span, tie-broken by the soonest reset.
@@ -224,9 +188,10 @@ export function projectResetCredits(
  * With nothing under the bound, the shortest available window is used rather
  * than drawing nothing.
  */
-export function pickLaneWindow<
-  T extends { resetAtMs?: number | null; periodHours?: number | null },
->(windows: readonly T[], maxPeriodHours?: number): T | null {
+export function pickLaneWindow<T extends { resetAtMs?: number | null; periodHours?: number | null }>(
+  windows: readonly T[],
+  maxPeriodHours?: number
+): T | null {
   const usable = windows.filter(
     (window) => typeof window.resetAtMs === 'number' && Number.isFinite(window.resetAtMs)
   );
@@ -268,18 +233,10 @@ export function laneHasWindow(lane: TimelineLane): boolean {
 
 /** Shape the lane builder reads. Deliberately structural — see the note below. */
 interface WindowLike {
-  id?: string;
   label?: string;
   usedPercent?: number | null;
   resetAtMs?: number | null;
   periodHours?: number | null;
-}
-
-interface ResetCreditLike {
-  id?: string;
-  status?: string;
-  grantedAt?: string;
-  expiresAt?: string;
 }
 
 interface KimiRowLike {
@@ -305,14 +262,6 @@ interface AntigravityBucketLike {
   remainingFraction?: number | null;
   resetAtMs?: number | null;
   periodHours?: number | null;
-}
-
-interface MetaWindowLike {
-  id: 'window' | 'weekly';
-  usedPercent: number | null;
-  /** Unix seconds from the upstream Meta contract. */
-  resetAt?: number;
-  durationMinutes?: number;
 }
 
 export interface TimelineLaneInput {
@@ -352,7 +301,6 @@ export function buildTimelineLane(input: TimelineLaneInput): TimelineLane {
     periodHours: null,
     remaining: null,
     limits: [],
-    resetCredits: [],
   };
 
   if (!quota || quota.status !== 'success') return empty;
@@ -361,44 +309,8 @@ export function buildTimelineLane(input: TimelineLaneInput): TimelineLane {
     const windows = ((quota as { windows?: WindowLike[] }).windows ?? []).filter(
       (window) => typeof window.resetAtMs === 'number'
     );
-    const preferredCodexId =
-      maxPeriodHours !== undefined && maxPeriodHours <= SESSION_PERIOD_HOURS
-        ? 'five-hour'
-        : 'weekly';
-    // Codex can report model-scoped windows with the same period as the account
-    // window (for example GPT-5.3-Codex-Spark weekly). A reset-time tie-break
-    // would make the lane silently switch to that model's quota. Keep the lane
-    // anchored to the standard account window whenever it fits this view.
-    const preferredCodexWindow =
-      provider === 'codex'
-        ? windows.find(
-            (window) =>
-              window.id === preferredCodexId &&
-              typeof window.periodHours === 'number' &&
-              window.periodHours > 0 &&
-              (maxPeriodHours === undefined || window.periodHours <= maxPeriodHours)
-          )
-        : undefined;
-    const chosen = preferredCodexWindow ?? pickLaneWindow(windows, maxPeriodHours);
+    const chosen = pickLaneWindow(windows, maxPeriodHours);
     if (!chosen) return empty;
-
-    const resetCredits =
-      provider === 'codex'
-        ? ((quota as { rateLimitResetCredits?: ResetCreditLike[] }).rateLimitResetCredits ?? [])
-            .filter((credit) => credit.status === 'available')
-            .map((credit): TimelineResetCredit | null => {
-              const expiresAtMs = new Date(credit.expiresAt ?? '').getTime();
-              if (!Number.isFinite(expiresAtMs)) return null;
-
-              const grantedAtMs = new Date(credit.grantedAt ?? '').getTime();
-              return {
-                id: credit.id ?? '',
-                grantedAtMs: Number.isFinite(grantedAtMs) ? grantedAtMs : null,
-                expiresAtMs,
-              };
-            })
-            .filter((credit): credit is TimelineResetCredit => credit !== null)
-        : [];
 
     return {
       ...empty,
@@ -412,36 +324,6 @@ export function buildTimelineLane(input: TimelineLaneInput): TimelineLane {
         .map((window) => ({
           label: window.label ?? '',
           remaining: clampPercent(100 - (window.usedPercent as number)),
-        })),
-      resetCredits,
-    };
-  }
-
-  if (provider === 'devin') {
-    const windows =
-      (
-        quota as {
-          windows?: {
-            id: string;
-            label?: string;
-            remainingPercent: number | null;
-            resetAtMs: number | null;
-            periodHours: number;
-          }[];
-        }
-      ).windows ?? [];
-    const chosen = pickLaneWindow(windows, maxPeriodHours);
-    if (!chosen) return empty;
-    return {
-      ...empty,
-      anchorMs: chosen.resetAtMs,
-      periodHours: chosen.periodHours,
-      remaining: chosen.remainingPercent,
-      limits: windows
-        .filter((window) => window.remainingPercent !== null)
-        .map((window) => ({
-          label: window.label ?? window.id,
-          remaining: window.remainingPercent as number,
         })),
     };
   }
@@ -525,48 +407,6 @@ export function buildTimelineLane(input: TimelineLaneInput): TimelineLane {
     };
   }
 
-  if (provider === 'meta') {
-    const sourceWindows = (quota as { data?: { windows?: MetaWindowLike[] } }).data?.windows ?? [];
-    const windows = sourceWindows
-      // The upstream weekly bucket has no duration field; its scope defines seven days.
-      .map((window) => ({
-        ...window,
-        durationMinutes: window.id === 'weekly' ? 7 * 24 * 60 : window.durationMinutes,
-      }))
-      .filter(
-        (window) =>
-          typeof window.resetAt === 'number' &&
-          Number.isFinite(window.resetAt) &&
-          typeof window.durationMinutes === 'number' &&
-          Number.isFinite(window.durationMinutes) &&
-          window.durationMinutes > 0
-      )
-      .map((window) => ({
-        ...window,
-        resetAtMs: (window.resetAt as number) * 1000,
-        periodHours: (window.durationMinutes as number) / 60,
-      }));
-    const chosen = pickLaneWindow(windows, maxPeriodHours);
-    if (!chosen) return empty;
-
-    const remainingOf = (window: MetaWindowLike) =>
-      typeof window.usedPercent === 'number' && Number.isFinite(window.usedPercent)
-        ? clampPercent(100 - window.usedPercent)
-        : null;
-
-    return {
-      ...empty,
-      anchorMs: chosen.resetAtMs,
-      periodHours: chosen.periodHours,
-      remaining: remainingOf(chosen),
-      limits: windows
-        .map((window) => ({
-          label: `meta_quota.${window.id}`,
-          remaining: remainingOf(window),
-        }))
-        .filter((limit): limit is TimelineLimit => limit.remaining !== null),
-    };
-  }
-
   return empty;
 }
+

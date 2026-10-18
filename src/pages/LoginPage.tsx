@@ -233,7 +233,13 @@ export function LoginPage() {
             <img src={INLINE_LOGO_JPEG} alt="Logo" className={styles.logo} />
 
             {/* 登录表单卡片 */}
-            <div className={styles.loginCard}>
+            <form
+              className={styles.loginCard}
+              onSubmit={(e) => {
+                e.preventDefault();
+                void handleSubmit();
+              }}
+            >
               <div className={styles.loginHeader}>
                 <div className={styles.titleRow}>
                   <div className={styles.title}>{t('title.login')}</div>
@@ -316,12 +322,16 @@ export function LoginPage() {
                 />
               </div>
 
-              <Button fullWidth onClick={handleSubmit} loading={loading}>
+              <Button type="submit" fullWidth loading={loading}>
                 {loading ? t('login.submitting') : t('login.submit_button')}
               </Button>
 
-              {error && <div className={styles.errorBox}>{error}</div>}
-            </div>
+              {error && (
+                <div className={styles.errorBox} role="alert" aria-live="polite">
+                  {error}
+                </div>
+              )}
+            </form>
           </div>
         )}
       </div>

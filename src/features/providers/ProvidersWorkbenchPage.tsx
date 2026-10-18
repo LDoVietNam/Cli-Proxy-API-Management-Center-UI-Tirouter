@@ -191,6 +191,10 @@ export function ProvidersWorkbenchPage({ fixedBrand }: ProvidersWorkbenchPagePro
     [activeBrand, persistUiState]
   );
 
+  const clearActiveFilters = useCallback(() => {
+    updateActiveFilterState({ filter: '', selectedModels: [] });
+  }, [updateActiveFilterState]);
+
   const filteredResources = useMemo(() => {
     if (!activeGroup) return [];
     const normalized = filter.trim().toLowerCase();
@@ -458,6 +462,7 @@ export function ProvidersWorkbenchPage({ fixedBrand }: ProvidersWorkbenchPagePro
             group={activeGroup}
             filter={filter}
             onFilterChange={(value) => updateActiveFilterState({ filter: value })}
+            onClearFilters={clearActiveFilters}
             filteredResources={visibleResources}
             selectedId={sheetState.open ? (sheetState.resource?.id ?? null) : null}
             disableMutations={disableMutations}

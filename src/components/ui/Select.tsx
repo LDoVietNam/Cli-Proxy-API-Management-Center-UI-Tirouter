@@ -30,6 +30,8 @@ interface SelectProps {
   fullWidth?: boolean;
   size?: 'sm' | 'md';
   id?: string;
+  searchable?: boolean;
+  searchPlaceholder?: string;
 }
 
 const VIEWPORT_MARGIN = 8;
@@ -89,6 +91,8 @@ export function Select({
   fullWidth = true,
   size = 'md',
   id,
+  searchable = false,
+  searchPlaceholder = 'Search...',
 }: SelectProps) {
   const generatedId = useId();
   const selectId = id ?? generatedId;
@@ -99,6 +103,7 @@ export function Select({
   const dropdownRef = useRef<HTMLDivElement | null>(null);
   const rafRef = useRef<number | null>(null);
   const [dropdownStyle, setDropdownStyle] = useState<CSSProperties | null>(null);
+  const [searchValue, setSearchValue] = useState('');
   const isOpen = open && !disabled;
 
   useEffect(() => {
@@ -168,16 +173,28 @@ export function Select({
     };
   }, [isOpen, scheduleDropdownStyleUpdate, updateDropdownStyle]);
 
+  const filteredOptions = useMemo(() => {
+    if (!searchable) return options;
+    const q = searchValue.toLowerCase().trim();
+    if (!q) return options;
+    return options.filter(
+      (opt) =>
+        opt.label.toLowerCase().includes(q) ||
+        opt.value.toLowerCase().includes(q)
+    );
+  }, [options, searchable, searchValue]);
+
   const selectedIndex = useMemo(
-    () => options.findIndex((option) => option.value === value),
-    [options, value]
+    () =>
+      filteredOptions.findIndex((option) => option.value === value),
+    [filteredOptions, value]
   );
   const resolvedHighlightedIndex =
     highlightedIndex >= 0
       ? highlightedIndex
       : selectedIndex >= 0
         ? selectedIndex
-        : options.length > 0
+        : filteredOptions.length > 0
           ? 0
           : -1;
   const selected = selectedIndex >= 0 ? options[selectedIndex] : undefined;
@@ -192,16 +209,16 @@ export function Select({
       setOpen(false);
       setHighlightedIndex(nextIndex);
     },
-    [onChange, options]
+    [onChange, filteredOptions]
   );
 
   const moveHighlight = useCallback(
     (direction: 1 | -1) => {
-      if (options.length === 0) return;
-      const nextIndex = (resolvedHighlightedIndex + direction + options.length) % options.length;
+      if (filteredOptions.length === 0) return;
+      const nextIndex = (resolvedHighlightedIndex + direction + filteredOptions.length) % filteredOptions.length;
       setHighlightedIndex(nextIndex);
     },
-    [options.length, resolvedHighlightedIndex]
+    [filteredOptions.length, resolvedHighlightedIndex]
   );
 
   const handleKeyDown = useCallback(
@@ -226,14 +243,14 @@ export function Select({
           moveHighlight(-1);
           return;
         case 'Home':
-          if (!isOpen || options.length === 0) return;
+          if (!isOpen || filteredOptions.length === 0) return;
           event.preventDefault();
           setHighlightedIndex(0);
           return;
         case 'End':
-          if (!isOpen || options.length === 0) return;
+          if (!isOpen || filteredOptions.length === 0) return;
           event.preventDefault();
-          setHighlightedIndex(options.length - 1);
+          setHighlightedIndex(filteredOptions.length - 1);
           return;
         case 'Enter':
         case ' ': {
@@ -259,7 +276,7 @@ export function Select({
           return;
       }
     },
-    [commitSelection, disabled, isOpen, moveHighlight, options.length, resolvedHighlightedIndex]
+    [commitSelection, disabled, isOpen, moveHighlight, filteredOptions.length, resolvedHighlightedIndex]
   );
 
   useEffect(() => {
@@ -280,7 +297,30 @@ export function Select({
         aria-label={ariaLabel}
         style={dropdownStyle}
       >
-        {options.map((opt, index) => {
+        {searchable && (
+          <input
+            type="search"
+            value={searchValue}
+            onChange={(e) => setSearchValue(e.target.value)}
+            onClick={(e) => e.stopPropagation()}
+            onKeyDown={(e) => e.stopPropagation()}
+            placeholder={searchPlaceholder ?? 'Search...'}
+            aria-label="Search options"
+            style={{
+              width: '100%',
+              padding: '6px 10px',
+              marginBottom: '4px',
+              fontSize: '0.85rem',
+              border: '1px solid var(--border-color, #333)',
+              borderRadius: 'var(--radius-sm, 4px)',
+              backgroundColor: 'var(--bg-secondary, #1a1a1a)',
+              color: 'var(--text-primary, #fff)',
+              outline: 'none',
+              boxSizing: 'border-box',
+            }}
+          />
+        )}
+        {filteredOptions.map((opt, index) => {
           const active = opt.value === value;
           const highlighted = index === resolvedHighlightedIndex;
           return (

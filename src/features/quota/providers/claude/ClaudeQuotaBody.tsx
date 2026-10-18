@@ -1,24 +1,20 @@
 /**
- * Claude 额度渲染体：套餐/额外用量 chip 行 + 用量窗口水位条。
+ * Claude 额度渲染体：套餐 chip 行 + 额度用量进度条
  */
 
-import { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { ClaudeQuotaState } from '@/types';
-import { buildResetDisplay } from '@/utils/quota';
-import { useNow } from '@/hooks/useNow';
 import { QuotaMeter } from '../../components/QuotaMeter';
-import { QuotaResetLabel } from '../../components/QuotaResetLabel';
-import { collectQuotaRowInstants, pickUrgentRowId } from '../../resetSchedule';
+import { buildResetDisplay, relativeTimeParts } from '@/utils/quota/relativeTime';
 import type { QuotaBodyProps } from '../../types';
+import { useNow } from '@/hooks/useNow';
 
-export function ClaudeQuotaBody({ quota, classes }: QuotaBodyProps<ClaudeQuotaState>) {
-  const { t, i18n } = useTranslation();
+export function ClaudeQuotaBody({ quota, classes, nowMs: nowMsProp }: QuotaBodyProps<ClaudeQuotaState> & { nowMs?: number }) {
+  const { t } = useTranslation();
+  // useNow (not Date.now default) — react-compiler lint: impure call in render.
+  // Hook is called unconditionally; prop wins when provided.
   const now = useNow();
-  const soonestRowId = useMemo(
-    () => pickUrgentRowId(collectQuotaRowInstants('claude', quota), now),
-    [quota, now]
-  );
+  const nowMs = nowMsProp ?? now;
   const windows = quota.windows ?? [];
   const extraUsage = quota.extraUsage ?? null;
   const planType = quota.planType ?? null;
@@ -49,28 +45,36 @@ export function ClaudeQuotaBody({ quota, classes }: QuotaBodyProps<ClaudeQuotaSt
             clampedUsed === null ? null : Math.max(0, Math.min(100, 100 - clampedUsed));
           const percentLabel = remaining === null ? '--' : `${Math.round(remaining)}%`;
           const windowLabel = window.labelKey ? t(window.labelKey) : window.label;
+
+          // Build reset display with both absolute and relative time
           const resetDisplay = buildResetDisplay(
             window.resetLabel,
             window.resetAtMs,
-            now,
-            i18n.resolvedLanguage
+            nowMs
           );
 
-          const soon = window.id === soonestRowId;
+          // Check if reset is within the final hour (for quotaResetRelativeSoon class)
+          const isResetSoon = window.resetAtMs !== null && window.resetAtMs !== undefined
+            ? relativeTimeParts(window.resetAtMs, nowMs).unit === 'minute'
+            : false;
 
           return (
-            <div
-              key={window.id}
-              className={classes.quotaRow}
-              title={soon ? t('quota_management.soonest_row_hint') : undefined}
-            >
+            <div key={window.id} className={`${classes.quotaRow} ${isResetSoon ? classes.quotaResetRelativeSoon : ''}`}>
               <div className={classes.quotaRowHeader}>
                 <span className={classes.quotaModel}>{windowLabel}</span>
                 <div className={classes.quotaMeta}>
                   <span className={classes.quotaPercent}>{percentLabel}</span>
-                  {resetDisplay && (
-                    <QuotaResetLabel display={resetDisplay} classes={classes} soon={soon} />
-                  )}
+                  <span className={classes.quotaReset}>
+                    {resetDisplay?.absolute}
+                    {resetDisplay?.relative && (
+                      <>
+                        <span className={classes.quotaResetRelative}>
+                          {' '}
+                          ({resetDisplay.relative})
+                        </span>
+                      </>
+                    )}
+                  </span>
                 </div>
               </div>
               <QuotaMeter percent={remaining} classes={classes} index={index} />

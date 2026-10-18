@@ -23,16 +23,20 @@ export function isCodexFile(file: AuthFileItem): boolean {
   return resolveAuthProvider(file) === 'codex';
 }
 
-export function isDevinFile(file: AuthFileItem): boolean {
-  return resolveAuthProvider(file) === 'devin';
-}
-
 export function isKimiFile(file: AuthFileItem): boolean {
   return resolveAuthProvider(file) === 'kimi';
 }
 
 export function isXaiFile(file: AuthFileItem): boolean {
   return resolveAuthProvider(file) === 'xai';
+}
+
+export function isDevinFile(file: AuthFileItem): boolean {
+  return resolveAuthProvider(file) === 'devin';
+}
+
+export function isMetaFile(file: AuthFileItem): boolean {
+  return resolveAuthProvider(file) === 'meta';
 }
 
 export function isDisabledAuthFile(file: AuthFileItem): boolean {

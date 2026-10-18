@@ -133,9 +133,6 @@ export function ProviderResourceTable({
       if (r.brand === 'claude' && r.flags.cloakEnabled) {
         items.push(renderFlagTag('cloak', t('providersPage.table.cloakTag')));
       }
-      if (r.brand === 'claude' && r.flags.claudeCodeCliProfile) {
-        items.push(renderFlagTag('cli-profile', t('providersPage.table.cliProfileTag')));
-      }
     }
     return <div className={styles.metricsCell}>{items}</div>;
   };
@@ -146,6 +143,21 @@ export function ProviderResourceTable({
         <span className={`${styles.statusBadge} ${styles.statusDisabled}`}>
           <IconAlertTriangle size={14} />
           {t('providersPage.status.disabled')}
+        </span>
+      );
+    }
+    // A resource is "connected via API key" when it carries at least one real
+    // key (key-based brands expose exactly 1 per entry; OpenAI exposes N).
+    if (r.apiKeyEntryCount > 0) {
+      return (
+        <span
+          className={`${styles.statusBadge} ${styles.statusConnected}`}
+          title={t('providersPage.status.connectedViaApiKeyTitle')}
+        >
+          <IconCheckCircle2 size={14} />
+          {r.apiKeyEntryCount === 1
+            ? t('providersPage.status.connectedViaApiKey')
+            : t('providersPage.status.connectedViaApiKeyCount', { count: r.apiKeyEntryCount })}
         </span>
       );
     }
@@ -170,17 +182,25 @@ export function ProviderResourceTable({
     }
     if (r.brand === 'openaiCompatibility') {
       const extra = r.apiKeyEntryCount > 1 ? ` · +${r.apiKeyEntryCount - 1}` : '';
+      const connectedTag = r.apiKeyEntryCount > 0 ? (
+        <span className={styles.primaryConnected}>{t('providersPage.status.connectedShort')}</span>
+      ) : null;
       return (
         <div className={styles.primaryCell}>
           <span className={styles.primaryName}>{r.name ?? r.identifier}</span>
           <span className={styles.primarySub}>{(r.apiKeyPreview ?? '—') + extra}</span>
+          {connectedTag}
         </div>
       );
     }
+    const keyConnected = r.apiKeyEntryCount > 0;
     return (
       <div className={styles.primaryCell}>
         <span className={styles.primaryName}>{r.apiKeyPreview ?? '—'}</span>
         {r.authIndex ? <span className={styles.primarySub}>auth: {r.authIndex}</span> : null}
+        {keyConnected ? (
+          <span className={styles.primaryConnected}>{t('providersPage.status.connectedShort')}</span>
+        ) : null}
       </div>
     );
   };
@@ -288,6 +308,7 @@ export function ProviderResourceTable({
                     type="button"
                     className={styles.iconBtn}
                     aria-label={t('providersPage.actions.view')}
+                    aria-haspopup="dialog"
                     title={t('providersPage.actions.view')}
                     onClick={(e) => {
                       e.stopPropagation();
@@ -300,6 +321,7 @@ export function ProviderResourceTable({
                     type="button"
                     className={styles.iconBtn}
                     aria-label={t('providersPage.actions.edit')}
+                    aria-haspopup="dialog"
                     title={t('providersPage.actions.edit')}
                     disabled={disableMutations}
                     onClick={(e) => {

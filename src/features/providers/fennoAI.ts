@@ -97,4 +97,5 @@ export const buildFennoAIRaw = (config: Config | null | undefined): SponsorProvi
     .map((item, index) => ({ config: item, index }))
     .filter((item) => isFennoAICodexProvider(item.config)),
   gemini: [],
+  anthropic: [],
 });

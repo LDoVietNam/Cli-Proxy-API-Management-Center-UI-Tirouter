@@ -763,6 +763,7 @@
 }
 
 // ─── Skeleton ───────────────────────────────────────────
+// Cards use the shared Skeleton component; these classes only provide layout.
 
 .skeletonCard {
   display: flex;
@@ -780,72 +781,11 @@
   gap: $spacing-md;
 }
 
-.skeletonAvatar {
-  width: 40px;
-  height: 40px;
-  border-radius: 10px;
-  background: linear-gradient(
-    90deg,
-    color-mix(in srgb, var(--bg-secondary) 86%, transparent) 25%,
-    color-mix(in srgb, var(--bg-hover) 70%, transparent) 37%,
-    color-mix(in srgb, var(--bg-secondary) 86%, transparent) 63%
-  );
-  background-size: 400% 100%;
-  animation: skeletonPulse 1.35s ease-in-out infinite;
-  flex-shrink: 0;
-}
-
 .skeletonText {
   display: flex;
   flex-direction: column;
   gap: 8px;
   flex: 1;
-}
-
-.skeletonLine {
-  height: 14px;
-  border-radius: 4px;
-  background: linear-gradient(
-    90deg,
-    color-mix(in srgb, var(--bg-secondary) 86%, transparent) 25%,
-    color-mix(in srgb, var(--bg-hover) 70%, transparent) 37%,
-    color-mix(in srgb, var(--bg-secondary) 86%, transparent) 63%
-  );
-  background-size: 400% 100%;
-  animation: skeletonPulse 1.35s ease-in-out infinite;
-
-  &:first-child {
-    width: 45%;
-  }
-
-  &:last-child {
-    width: 70%;
-    height: 10px;
-  }
-}
-
-.skeletonBody {
-  height: 56px;
-  border-radius: $radius-md;
-  background: linear-gradient(
-    90deg,
-    color-mix(in srgb, var(--bg-secondary) 86%, transparent) 25%,
-    color-mix(in srgb, var(--bg-hover) 70%, transparent) 37%,
-    color-mix(in srgb, var(--bg-secondary) 86%, transparent) 63%
-  );
-  background-size: 400% 100%;
-  animation: skeletonPulse 1.35s ease-in-out infinite;
-}
-
-// ─── Animation ──────────────────────────────────────────
-
-@keyframes skeletonPulse {
-  0% {
-    background-position: 100% 0;
-  }
-  100% {
-    background-position: 0 0;
-  }
 }
 
 // ─── Mobile Overrides ───────────────────────────────────

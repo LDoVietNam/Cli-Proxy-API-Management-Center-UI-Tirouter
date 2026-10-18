@@ -1,13 +1,16 @@
 import { useTranslation } from 'react-i18next';
+import { EmptyState } from '@/components/ui/EmptyState';
 import { IconExternalLink, IconPlus, IconSearch } from '@/components/ui/icons';
 import type { ProviderRecentUsageMap } from '@/components/providers/utils';
 import { PROVIDER_LOGOS } from '../brandLogos';
+import { CLAUDE_API_AFFILIATE_URL } from '../claudeApi';
 import { getKimiAffiliateUrl } from '../kimi';
 import { APIKEY_FUN_AFFILIATE_URL, APIKEY_FUN_DASHBOARD_URL } from '../sponsor';
 import { getSponsorProviderDefinition } from '../sponsorDefinitions';
 import type { ProviderGroup, ProviderResource } from '../types';
 import { ProviderResourceTable } from './ProviderResourceTable';
 import { ProviderResourceToolbar } from './ProviderResourceToolbar';
+import { resolveProviderPanelEmptyState } from './providerPanelEmptyState';
 import type { ProviderSortBy, SortDir } from '../types';
 import styles from './ProviderResourcePanel.module.scss';
 
@@ -35,6 +38,7 @@ interface ProviderResourcePanelProps {
   onDelete: (resource: ProviderResource) => void;
   onToggleDisabled?: (resource: ProviderResource, disabled: boolean) => void;
   onCreate: () => void;
+  onClearFilters: () => void;
 }
 
 export function ProviderResourcePanel({
@@ -51,19 +55,26 @@ export function ProviderResourcePanel({
   onDelete,
   onToggleDisabled,
   onCreate,
+  onClearFilters,
 }: ProviderResourcePanelProps) {
-  const { t, i18n } = useTranslation();
+  const { t } = useTranslation();
   const logo = PROVIDER_LOGOS[group.id];
   const providerTitle = t(`providersPage.providerNames.${group.id}`);
   const hasProviderInfo = group.resources.length > 0;
   const showSponsorRegistrationLink = group.id === 'apikeyFun' && !hasProviderInfo;
   const showSponsorDashboardLink = group.id === 'apikeyFun' && hasProviderInfo;
+  const showClaudeApiSponsorLink = group.id === 'claudeApi';
   const registrationUrl =
-    group.id === 'kimi'
-      ? getKimiAffiliateUrl(i18n.resolvedLanguage ?? i18n.language)
-      : group.id === 'fennoAI' || group.id === 'qiniuCloud'
-        ? getSponsorProviderDefinition(group.id).affiliateUrl
-        : null;
+    group.id === 'claudeApi'
+      ? CLAUDE_API_AFFILIATE_URL
+      : group.id === 'kimi'
+        ? getKimiAffiliateUrl()
+        : group.id === 'code0' ||
+            group.id === 'lmuAI' ||
+            group.id === 'fennoAI' ||
+            group.id === 'qiniuCloud'
+          ? getSponsorProviderDefinition(group.id).affiliateUrl
+          : null;
   const registrationLabel = t(
     group.id === 'kimi' ? 'providersPage.sponsor.registerNow' : 'providersPage.sponsor.registerLink'
   );
@@ -133,27 +144,16 @@ export function ProviderResourcePanel({
                 </span>
                 <IconExternalLink className={styles.sponsorLinkIcon} size={14} />
               </a>
-            ) : registrationUrl ? (
-              <>
-                <a
-                  className={[
-                    styles.sponsorLink,
-                    styles.sponsorLinkEmphasis,
-                    group.id === 'kimi' ? styles.sponsorLinkKimi : '',
-                  ]
-                    .filter(Boolean)
-                    .join(' ')}
-                  href={registrationUrl}
-                  target="_blank"
-                  rel="noreferrer"
-                >
-                  <span className={styles.sponsorLinkText}>{registrationLabel}</span>
-                  <IconExternalLink className={styles.sponsorLinkIcon} size={14} />
-                </a>
-                {group.id === 'kimi' ? (
-                  <p className={styles.kimiPromo}>{t('providersPage.sponsor.kimiPromo')}</p>
-                ) : null}
-              </>
+            ) : showClaudeApiSponsorLink || registrationUrl ? (
+              <a
+                className={`${styles.sponsorLink} ${styles.sponsorLinkEmphasis}`}
+                href={registrationUrl ?? CLAUDE_API_AFFILIATE_URL}
+                target="_blank"
+                rel="noreferrer"
+              >
+                <span className={styles.sponsorLinkText}>{registrationLabel}</span>
+                <IconExternalLink className={styles.sponsorLinkIcon} size={14} />
+              </a>
             ) : null}
           </div>
           <div className={styles.searchWrap}>
@@ -166,6 +166,7 @@ export function ProviderResourcePanel({
               value={filter}
               onChange={(event) => onFilterChange(event.target.value)}
               placeholder={t('providersPage.table.filterPlaceholder')}
+              aria-label={t('providersPage.table.filterPlaceholder')}
             />
           </div>
         </div>
@@ -186,27 +187,49 @@ export function ProviderResourcePanel({
       </div>
 
       {filteredResources.length === 0 ? (
-        <div className={styles.empty}>
-          <div>{emptyText}</div>
-          <div className={styles.emptyAction}>
-            {showSponsorRegistrationLink ? (
-              <a
-                className={`${styles.emptyActionButton} ${styles.emptyActionButtonEmphasis}`}
-                href={APIKEY_FUN_AFFILIATE_URL}
-                target="_blank"
-                rel="noreferrer"
-              >
-                <IconExternalLink size={16} />
-                <span>{t('providersPage.sponsor.registerLink')}</span>
-              </a>
-            ) : (
-              <button type="button" className={styles.emptyActionButton} onClick={onCreate}>
-                <IconPlus size={16} />
-                <span>{t('providersPage.actions.new')}</span>
+        resolveProviderPanelEmptyState({
+          totalResources: group.resources.length,
+          visibleResources: filteredResources.length,
+        }) === 'filterNoMatch' ? (
+          <EmptyState
+            title={t('providersPage.table.filterNoMatch.title', {
+              defaultValue: 'No matching resources',
+            })}
+            description={t('providersPage.table.filterNoMatch.description', {
+              defaultValue: 'Try a different keyword or clear the active filters.',
+            })}
+            action={
+              <button type="button" className={styles.emptyActionButton} onClick={onClearFilters}>
+                <IconSearch size={16} />
+                <span>
+                  {t('providersPage.table.filterNoMatch.clear', { defaultValue: 'Clear filters' })}
+                </span>
               </button>
-            )}
+            }
+          />
+        ) : (
+          <div className={styles.empty}>
+            <div>{emptyText}</div>
+            <div className={styles.emptyAction}>
+              {showSponsorRegistrationLink ? (
+                <a
+                  className={`${styles.emptyActionButton} ${styles.emptyActionButtonEmphasis}`}
+                  href={APIKEY_FUN_AFFILIATE_URL}
+                  target="_blank"
+                  rel="noreferrer"
+                >
+                  <IconExternalLink size={16} />
+                  <span>{t('providersPage.sponsor.registerLink')}</span>
+                </a>
+              ) : (
+                <button type="button" className={styles.emptyActionButton} onClick={onCreate}>
+                  <IconPlus size={16} />
+                  <span>{t('providersPage.actions.new')}</span>
+                </button>
+              )}
+            </div>
           </div>
-        </div>
+        )
       ) : (
         <ProviderResourceTable
           resources={filteredResources}

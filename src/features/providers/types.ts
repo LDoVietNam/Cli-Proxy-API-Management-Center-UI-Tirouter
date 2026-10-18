@@ -9,17 +9,23 @@ export type ProviderBrand =
   | 'gemini'
   | 'interactions'
   | 'codex'
-  | 'meta'
   | 'xai'
   | 'claude'
+  | 'claudeApi'
   | 'vertex'
   | 'openaiCompatibility'
   | 'apikeyFun'
+  | 'code0'
   | 'fennoAI'
   | 'qiniuCloud'
-  | 'kimi';
+  | 'lmuAI'
+  | 'kimi'
+  | 'groq'
+  | 'openrouter'
+  | 'anthropic';
 
-export type SponsorProviderBrand = 'apikeyFun' | 'fennoAI' | 'qiniuCloud' | 'kimi';
+export type SponsorProviderBrand =
+  'apikeyFun' | 'code0' | 'fennoAI' | 'qiniuCloud' | 'lmuAI' | 'kimi' | 'openrouter' | 'gemini' | 'anthropic' | 'groq';
 
 export const PROVIDER_SORT_BY_VALUES = ['name', 'priority', 'recent-success'] as const;
 export type ProviderSortBy = (typeof PROVIDER_SORT_BY_VALUES)[number];
@@ -31,13 +37,23 @@ export type ProviderResourceSelector =
   | { brand: 'gemini'; apiKey: string; baseUrl?: string; index: number }
   | { brand: 'interactions'; apiKey: string; baseUrl?: string; index: number }
   | { brand: 'codex'; apiKey: string; baseUrl?: string; index: number }
-  | { brand: 'meta'; apiKey: string; baseUrl?: string; index: number }
   | { brand: 'xai'; apiKey: string; baseUrl?: string; index: number }
   | { brand: 'claude'; apiKey: string; baseUrl?: string; index: number }
+  | { brand: 'claudeApi'; apiKey: string; baseUrl?: string; index: number }
   | { brand: 'vertex'; apiKey: string; baseUrl?: string; index: number }
   | { brand: 'openaiCompatibility'; name: string; index: number }
+  | { brand: 'openrouter'; apiKey: string; baseUrl?: string; index: number }
+  | { brand: 'groq'; apiKey: string; baseUrl?: string; index: number }
+  | { brand: 'anthropic'; apiKey: string; baseUrl?: string; index: number }
   | {
       brand: 'apikeyFun';
+      openaiIndices: number[];
+      claudeIndices: number[];
+      codexIndices: number[];
+      geminiIndices: number[];
+    }
+  | {
+      brand: 'code0';
       openaiIndices: number[];
       claudeIndices: number[];
       codexIndices: number[];
@@ -58,6 +74,13 @@ export type ProviderResourceSelector =
       geminiIndices: number[];
     }
   | {
+      brand: 'lmuAI';
+      openaiIndices: number[];
+      claudeIndices: number[];
+      codexIndices: number[];
+      geminiIndices: number[];
+    }
+  | {
       brand: 'kimi';
       openaiIndices: number[];
       claudeIndices: number[];
@@ -67,9 +90,9 @@ export type ProviderResourceSelector =
 
 export interface ProviderResourceFlags {
   cloakEnabled?: boolean;
-  claudeCodeCliProfile?: boolean;
   websockets?: boolean;
   protocols?: string[];
+  claudeCodeCliProfile?: boolean;
 }
 
 export interface ProviderResource {
@@ -124,6 +147,7 @@ export interface SponsorProviderRaw {
   claude: Array<{ config: ProviderKeyConfig; index: number }>;
   codex: Array<{ config: ProviderKeyConfig; index: number }>;
   gemini: Array<{ config: GeminiKeyConfig; index: number }>;
+  anthropic: Array<{ config: ProviderKeyConfig; index: number }>;
 }
 
 /**
@@ -142,7 +166,7 @@ export interface ModelEntryInput {
   thinkingLevelsTouched?: boolean;
 }
 
-export type SponsorProtocol = 'openai' | 'codex' | 'claude' | 'gemini';
+export type SponsorProtocol = 'openai' | 'codex' | 'claude' | 'gemini' | 'anthropic';
 
 export interface SponsorKeyEntryInput {
   protocol: SponsorProtocol;
@@ -195,7 +219,7 @@ export interface ProviderEntryFormInput {
   websockets?: boolean;
   /** Claude 专属 */
   cloak?: CloakInput;
-  fingerprintProfile?: string;
+  experimentalCchSigning?: boolean;
   /** OpenAI persists this; Gemini/Claude use it for one-off connectivity tests. */
   testModel?: string;
   apiKeyEntries?: ApiKeyEntryInput[];

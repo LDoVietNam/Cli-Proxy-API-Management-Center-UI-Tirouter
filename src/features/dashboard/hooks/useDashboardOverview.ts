@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { authFilesApi } from '@/services/api';
 import { useAuthStore, useConfigStore, useModelsStore } from '@/stores';
-import { useApiKeysForModels } from '@/hooks/useApiKeysForModels';
 import { useProviderRecentRequests } from '@/components/providers/hooks/useProviderRecentRequests';
 import {
   mergeRecentRequestBucketGroups,
@@ -26,6 +25,7 @@ const EMPTY_TRAFFIC: TrafficWindow = {
   successRate: null,
   peakTotal: 0,
   peakIndex: -1,
+  activeBuckets: 0,
   windowMinutes: 0,
 };
 
@@ -52,11 +52,15 @@ const buildTrafficWindow = (bucketGroups: RecentRequestBucket[][]): TrafficWindo
   let totalFailure = 0;
   let peakTotal = 0;
   let peakIndex = -1;
+  let activeBuckets = 0;
 
   buckets.forEach((bucket, index) => {
     const bucketTotal = bucket.success + bucket.failed;
     totalSuccess += bucket.success;
     totalFailure += bucket.failed;
+    if (bucketTotal > 0) {
+      activeBuckets += 1;
+    }
     if (bucketTotal > peakTotal) {
       peakTotal = bucketTotal;
       peakIndex = index;
@@ -73,6 +77,7 @@ const buildTrafficWindow = (bucketGroups: RecentRequestBucket[][]): TrafficWindo
     successRate: total > 0 ? (totalSuccess / total) * 100 : null,
     peakTotal,
     peakIndex,
+    activeBuckets,
     windowMinutes: buckets.length * TRAFFIC_BUCKET_MINUTES,
   };
 };
@@ -95,7 +100,6 @@ export const getProviderKeyCounts = (config: Config) => ({
   gemini: config.geminiApiKeys?.length ?? 0,
   interactions: config.interactionsApiKeys?.length ?? 0,
   codex: config.codexApiKeys?.length ?? 0,
-  meta: config.metaApiKeys?.length ?? 0,
   xai: config.xaiApiKeys?.length ?? 0,
   claude: config.claudeApiKeys?.length ?? 0,
   vertex: config.vertexApiKeys?.length ?? 0,
@@ -111,7 +115,6 @@ export const getProviderKeyCounts = (config: Config) => ({
  */
 export function useDashboardOverview() {
   const connectionStatus = useAuthStore((state) => state.connectionStatus);
-  const apiBase = useAuthStore((state) => state.apiBase);
   const config = useConfigStore((state) => state.config);
   const fetchConfig = useConfigStore((state) => state.fetchConfig);
 
@@ -121,33 +124,35 @@ export function useDashboardOverview() {
   const fetchModelsFromStore = useModelsStore((state) => state.fetchModels);
 
   const connected = connectionStatus === 'connected';
-  const resolveApiKeysForModels = useApiKeysForModels();
 
   const { usageByProvider, refreshRecentRequests } = useProviderRecentRequests({
     enabled: connected,
   });
 
   const [authFiles, setAuthFiles] = useState<AuthFileItem[] | null>(null);
+  const [authFilesLoading, setAuthFilesLoading] = useState(false);
 
   const loadAuthFiles = useCallback(async () => {
     if (!connected) return;
+    setAuthFilesLoading(true);
     try {
       const response = await authFilesApi.list();
       setAuthFiles(response.files);
     } catch {
       setAuthFiles(null);
+    } finally {
+      setAuthFilesLoading(false);
     }
   }, [connected]);
 
   const loadModels = useCallback(async () => {
-    if (!connected || !apiBase) return;
+    if (!connected) return;
     try {
-      const apiKeys = await resolveApiKeysForModels();
-      await fetchModelsFromStore(apiBase, apiKeys[0]);
+      await fetchModelsFromStore();
     } catch {
       // 模型列表失败不应影响仪表盘其余部分
     }
-  }, [connected, apiBase, resolveApiKeysForModels, fetchModelsFromStore]);
+  }, [connected, fetchModelsFromStore]);
 
   useEffect(() => {
     if (!connected) return;
@@ -291,6 +296,9 @@ export function useDashboardOverview() {
     traffic,
     providers,
     credentials,
+    /** 首屏骨架的判定：配置与凭证都还没回来 */
+    initialLoading: connected && !config && authFiles === null,
+    authFilesLoading,
     refresh,
   };
 }

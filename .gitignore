@@ -33,3 +33,15 @@ settings.local.json
 *.njsproj
 *.sln
 *.sw?
+
+# Agent/session artifacts
+.backups/
+.claude/
+.superpowers/
+
+# Secondary lockfile (bun.lock is canonical)
+package-lock.json
+
+# Test/build debris
+test-results/
+*.bak

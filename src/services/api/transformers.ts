@@ -181,6 +181,10 @@ const normalizeProviderKeyConfig = (item: unknown): ProviderKeyConfig | null => 
       config.cloak = cloak;
     }
   }
+  const experimentalCchSigning = normalizeBoolean(record?.['experimental-cch-signing']);
+  if (experimentalCchSigning !== undefined) {
+    config.experimentalCchSigning = experimentalCchSigning;
+  }
   const fingerprintProfile = record?.['fingerprint-profile'];
   if (typeof fingerprintProfile === 'string' && fingerprintProfile.trim()) {
     config.fingerprintProfile = fingerprintProfile.trim();
@@ -360,13 +364,6 @@ export const normalizeConfigResponse = (raw: unknown): Config => {
   const codexList = raw['codex-api-key'];
   if (Array.isArray(codexList)) {
     config.codexApiKeys = codexList
-      .map((item) => normalizeProviderKeyConfig(item))
-      .filter(Boolean) as ProviderKeyConfig[];
-  }
-
-  const metaList = raw['meta-api-key'];
-  if (Array.isArray(metaList)) {
-    config.metaApiKeys = metaList
       .map((item) => normalizeProviderKeyConfig(item))
       .filter(Boolean) as ProviderKeyConfig[];
   }

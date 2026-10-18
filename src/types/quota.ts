@@ -245,52 +245,6 @@ export interface CodexQuotaState {
   errorStatus?: number;
 }
 
-export interface DevinQuotaWindow {
-  id: 'daily' | 'weekly';
-  label?: string;
-  remainingPercent: number | null;
-  resetAtMs: number | null;
-  periodHours: number;
-}
-
-/** Only quota observations, never the credential-bearing refresh response. */
-export interface DevinQuotaData {
-  windows: DevinQuotaWindow[];
-  observedAtMs: number | null;
-  plan: string | null;
-  planStartMs: number | null;
-  planEndMs: number | null;
-}
-
-export interface DevinQuotaState extends DevinQuotaData {
-  status: 'idle' | 'loading' | 'success' | 'error';
-  error?: string;
-  errorStatus?: number;
-}
-
-/** A whitelisted quota observation from Meta's Muse key endpoint. */
-export interface MetaQuotaWindow {
-  id: 'window' | 'weekly';
-  usedPercent: number | null;
-  /** Reset instant as Unix seconds, matching the upstream contract. */
-  resetAt?: number;
-  durationMinutes?: number;
-}
-
-/** Contains quota/display fields only; credential-bearing response fields are discarded. */
-export interface MetaQuotaData {
-  planName?: string;
-  isSubscriptionActive?: boolean;
-  windows: MetaQuotaWindow[];
-}
-
-export interface MetaQuotaState {
-  status: 'idle' | 'loading' | 'success' | 'error';
-  data?: MetaQuotaData;
-  error?: string;
-  errorStatus?: number;
-}
-
 // Kimi API payload types
 export interface KimiUsageDetail {
   used?: number | string;
@@ -440,6 +394,65 @@ export interface XaiBillingSummary {
 export interface XaiQuotaState {
   status: 'idle' | 'loading' | 'success' | 'error';
   billing: XaiBillingSummary | null;
+  error?: string;
+  errorStatus?: number;
+}
+
+// Devin Quota types
+export interface DevinQuotaWindow {
+  id: string;
+  label: string;
+  labelKey?: string;
+  labelParams?: Record<string, string | number>;
+  usedPercent: number | null;
+  resetLabel: string;
+  resetAtMs?: number | null;
+  periodHours?: number | null;
+}
+
+export interface DevinQuotaData {
+  planType?: string | null;
+  windows: DevinQuotaWindow[];
+  error?: string;
+  errorStatus?: number;
+}
+
+export interface DevinQuotaState {
+  status: 'idle' | 'loading' | 'success' | 'error';
+  windows: DevinQuotaWindow[];
+  planType?: string | null;
+  error?: string;
+  errorStatus?: number;
+}
+
+// Meta Quota types
+export interface MetaQuotaWindow {
+  id: string;
+  label: string;
+  labelKey?: string;
+  labelParams?: Record<string, string | number>;
+  usedPercent: number | null;
+  resetLabel: string;
+  resetAtMs?: number | null;
+  periodHours?: number | null;
+}
+
+export interface MetaQuotaData {
+  planType?: string | null;
+  windows: MetaQuotaWindow[];
+  error?: string;
+  errorStatus?: number;
+}
+
+export interface MetaQuotaState {
+  status: 'idle' | 'loading' | 'success' | 'error';
+  windows: MetaQuotaWindow[];
+  planType?: string | null;
+  data?: {
+    windows?: MetaQuotaWindow[];
+    planName?: string;
+  };
+  isSubscriptionActive?: boolean;
   error?: string;
   errorStatus?: number;
 }

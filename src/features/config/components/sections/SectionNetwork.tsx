@@ -112,7 +112,7 @@ export function SectionNetwork({
               label={t('config_management.visual.sections.network.auth_auto_refresh_workers')}
               type="number"
               placeholder="16"
-              value={values.authAutoRefreshWorkers}
+              value={String(values.authAutoRefreshWorkers)}
               onChange={(e) => onChange({ authAutoRefreshWorkers: e.target.value })}
               disabled={disabled}
               hint={t('config_management.visual.sections.network.auth_auto_refresh_workers_hint')}

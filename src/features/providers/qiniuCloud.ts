@@ -136,4 +136,5 @@ export const buildQiniuCloudRaw = (config: Config | null | undefined): SponsorPr
   gemini: (config?.geminiApiKeys ?? [])
     .map((item, index) => ({ config: item, index }))
     .filter((item) => isQiniuCloudGeminiProvider(item.config)),
+  anthropic: [],
 });

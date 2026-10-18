@@ -9,7 +9,23 @@
 // extra entry anywhere fails CI.
 
 export type VisualSectionId =
-  'connectivity' | 'network' | 'logging' | 'quota' | 'streaming' | 'advanced' | 'payload';
+  | 'connectivity'
+  | 'network'
+  | 'logging'
+  | 'quota'
+  | 'streaming'
+  | 'advanced'
+  | 'payload'
+  | 'llmFeatures'
+  | 'routingExtended'
+  | 'quotaExtended'
+  | 'protocolConfigs'
+  | 'infrastructure'
+  | 'advancedConfigs'
+  | 'prompts'
+  | 'promptNorm'
+  | 'rtk'
+  | 'caveman';
 
 export interface ConfigFieldSearchEntry {
   /** Stable anchor id; matches FieldAnchor's `fieldId` and the rendered DOM id. */
@@ -468,6 +484,234 @@ export const CONFIG_FIELD_SEARCH_INDEX: ConfigFieldSearchEntry[] = [
     labelKey: L('sections.payload.filter_rules'),
     hintKey: L('sections.payload.filter_rules_desc'),
     keywords: ['payload', 'rule', 'filter'],
+  },
+  // ── prompts ──────────────────────────────────────────────────────────────────
+  {
+    fieldId: 'promptsEnabled',
+    sectionId: 'prompts',
+    labelKey: L('sections.prompts.enabled'),
+    hintKey: L('sections.prompts.enabled_desc'),
+    yamlKeys: ['prompts', 'enabled'],
+    keywords: ['prompt', 'injection'],
+  },
+  {
+    fieldId: 'promptsDefaultSystem',
+    sectionId: 'prompts',
+    labelKey: L('sections.prompts.default_system'),
+    hintKey: L('sections.prompts.default_system_desc'),
+    yamlKeys: ['prompts', 'default', 'system'],
+    keywords: ['prompt', 'system'],
+  },
+  {
+    fieldId: 'promptsDefaultSystemMode',
+    sectionId: 'prompts',
+    labelKey: L('sections.prompts.default_system_mode'),
+    hintKey: L('sections.prompts.default_system_mode_desc'),
+    yamlKeys: ['prompts', 'default', 'system-mode'],
+    keywords: ['prompt', 'merge', 'replace', 'prepend'],
+  },
+  {
+    fieldId: 'promptsDefaultPrependUser',
+    sectionId: 'prompts',
+    labelKey: L('sections.prompts.default_prepend_user'),
+    hintKey: L('sections.prompts.default_prepend_user_desc'),
+    yamlKeys: ['prompts', 'default', 'prepend-user'],
+    keywords: ['prompt', 'prepend', 'user'],
+  },
+  {
+    fieldId: 'promptsDefaultAppendUser',
+    sectionId: 'prompts',
+    labelKey: L('sections.prompts.default_append_user'),
+    hintKey: L('sections.prompts.default_append_user_desc'),
+    yamlKeys: ['prompts', 'default', 'append-user'],
+    keywords: ['prompt', 'append', 'user'],
+  },
+  {
+    fieldId: 'promptsPresets',
+    sectionId: 'prompts',
+    labelKey: L('sections.prompts.presets'),
+    hintKey: L('sections.prompts.presets_desc'),
+    yamlKeys: ['prompts', 'presets'],
+    keywords: ['prompt', 'preset'],
+  },
+  // ── promptNorm ─────────────────────────────────────────────────────────────────
+  {
+    fieldId: 'promptNormEnabled',
+    sectionId: 'promptNorm',
+    labelKey: L('sections.promptNorm.enabled'),
+    hintKey: L('sections.promptNorm.enabled_desc'),
+    yamlKeys: ['prompt_norm', 'enabled'],
+    keywords: ['prompt', 'normalization', 'context'],
+  },
+  {
+    fieldId: 'promptNormMaxContextTokens',
+    sectionId: 'promptNorm',
+    labelKey: L('sections.promptNorm.max_context_tokens'),
+    hintKey: L('sections.promptNorm.max_context_tokens_desc'),
+    yamlKeys: ['prompt_norm', 'max-context-tokens'],
+    keywords: ['prompt', 'tokens', 'context', 'limit'],
+  },
+  {
+    fieldId: 'promptNormPreserveLastNBlocks',
+    sectionId: 'promptNorm',
+    labelKey: L('sections.promptNorm.preserve_last_n_blocks'),
+    hintKey: L('sections.promptNorm.preserve_last_n_blocks_desc'),
+    yamlKeys: ['prompt_norm', 'preserve-last-n-blocks'],
+    keywords: ['prompt', 'blocks', 'preserve'],
+  },
+  {
+    fieldId: 'promptNormMinDropTokens',
+    sectionId: 'promptNorm',
+    labelKey: L('sections.promptNorm.min_drop_tokens'),
+    hintKey: L('sections.promptNorm.min_drop_tokens_desc'),
+    yamlKeys: ['prompt_norm', 'min-drop-tokens'],
+    keywords: ['prompt', 'tokens', 'min', 'drop'],
+  },
+  {
+    fieldId: 'promptNormMaxDropRatio',
+    sectionId: 'promptNorm',
+    labelKey: L('sections.promptNorm.max_drop_ratio'),
+    hintKey: L('sections.promptNorm.max_drop_ratio_desc'),
+    yamlKeys: ['prompt_norm', 'max-drop-ratio'],
+    keywords: ['prompt', 'ratio', 'drop', 'limit'],
+  },
+  {
+    fieldId: 'promptNormTruncateHeadKeep',
+    sectionId: 'promptNorm',
+    labelKey: L('sections.promptNorm.truncate_head_keep'),
+    hintKey: L('sections.promptNorm.truncate_head_keep_desc'),
+    yamlKeys: ['prompt_norm', 'truncate-head-keep'],
+    keywords: ['prompt', 'truncate', 'head', 'keep'],
+  },
+  {
+    fieldId: 'promptNormTruncateTailKeep',
+    sectionId: 'promptNorm',
+    labelKey: L('sections.promptNorm.truncate_tail_keep'),
+    hintKey: L('sections.promptNorm.truncate_tail_keep_desc'),
+    yamlKeys: ['prompt_norm', 'truncate-tail-keep'],
+    keywords: ['prompt', 'truncate', 'tail', 'keep'],
+  },
+  {
+    fieldId: 'promptNormPruneToolResults',
+    sectionId: 'promptNorm',
+    labelKey: L('sections.promptNorm.prune_tool_results'),
+    hintKey: L('sections.promptNorm.prune_tool_results_desc'),
+    yamlKeys: ['prompt_norm', 'prune-tool-results'],
+    keywords: ['prompt', 'tool', 'results', 'prune'],
+  },
+  {
+    fieldId: 'promptNormSelectSystemPrompt',
+    sectionId: 'promptNorm',
+    labelKey: L('sections.promptNorm.select_system_prompt'),
+    hintKey: L('sections.promptNorm.select_system_prompt_desc'),
+    yamlKeys: ['prompt_norm', 'select-system-prompt'],
+    keywords: ['prompt', 'system', 'select'],
+  },
+  {
+    fieldId: 'promptNormSystemPromptMode',
+    sectionId: 'promptNorm',
+    labelKey: L('sections.promptNorm.system_prompt_mode'),
+    hintKey: L('sections.promptNorm.system_prompt_mode_desc'),
+    yamlKeys: ['prompt_norm', 'system-prompt-mode'],
+    keywords: ['prompt', 'system', 'mode', 'merge', 'replace'],
+  },
+  {
+    fieldId: 'promptNormAllowPrefixMutation',
+    sectionId: 'promptNorm',
+    labelKey: L('sections.promptNorm.allow_prefix_mutation'),
+    hintKey: L('sections.promptNorm.allow_prefix_mutation_desc'),
+    yamlKeys: ['prompt_norm', 'allow-prefix-mutation'],
+    keywords: ['prompt', 'prefix', 'mutation', 'cache'],
+  },
+  {
+    fieldId: 'promptNormPromptOverrides',
+    sectionId: 'promptNorm',
+    labelKey: L('sections.promptNorm.prompt_overrides'),
+    hintKey: L('sections.promptNorm.prompt_overrides_desc'),
+    yamlKeys: ['prompt_norm', 'prompt-overrides'],
+    keywords: ['prompt', 'overrides', 'custom', 'model'],
+  },
+  {
+    fieldId: 'promptNormDebugLog',
+    sectionId: 'promptNorm',
+    labelKey: L('sections.promptNorm.debug_log'),
+    hintKey: L('sections.promptNorm.debug_log_desc'),
+    yamlKeys: ['prompt_norm', 'debug-log'],
+    keywords: ['prompt', 'debug', 'log'],
+  },
+  // ── rtk ──────────────────────────────────────────────────────────────────────
+  {
+    fieldId: 'rtkEnabled',
+    sectionId: 'rtk',
+    labelKey: L('sections.rtk.enabled'),
+    hintKey: L('sections.rtk.enabled_desc'),
+    yamlKeys: ['rtk', 'enabled'],
+    keywords: ['rtk', 'kommando'],
+  },
+  {
+    fieldId: 'rtkBinary',
+    sectionId: 'rtk',
+    labelKey: L('sections.rtk.binary'),
+    hintKey: L('sections.rtk.binary_desc'),
+    yamlKeys: ['rtk', 'binary'],
+    keywords: ['rtk', 'binary', 'path'],
+  },
+  {
+    fieldId: 'rtkUltraMode',
+    sectionId: 'rtk',
+    labelKey: L('sections.rtk.ultra_mode'),
+    hintKey: L('sections.rtk.ultra_mode_desc'),
+    yamlKeys: ['rtk', 'ultra-mode'],
+    keywords: ['rtk', 'ultra'],
+  },
+  {
+    fieldId: 'rtkPoolSize',
+    sectionId: 'rtk',
+    labelKey: L('sections.rtk.pool_size'),
+    hintKey: L('sections.rtk.pool_size_desc'),
+    yamlKeys: ['rtk', 'pool-size'],
+    keywords: ['rtk', 'pool', 'worker'],
+  },
+  {
+    fieldId: 'rtkTimeout',
+    sectionId: 'rtk',
+    labelKey: L('sections.rtk.timeout'),
+    hintKey: L('sections.rtk.timeout_desc'),
+    yamlKeys: ['rtk', 'timeout'],
+    keywords: ['rtk', 'timeout'],
+  },
+  // ── caveman ──────────────────────────────────────────────────────────────────
+  {
+    fieldId: 'cavemanEnabled',
+    sectionId: 'caveman',
+    labelKey: L('sections.caveman.enabled'),
+    hintKey: L('sections.caveman.enabled_desc'),
+    yamlKeys: ['caveman', 'enabled'],
+    keywords: ['caveman', 'compression'],
+  },
+  {
+    fieldId: 'cavemanLevel',
+    sectionId: 'caveman',
+    labelKey: L('sections.caveman.level'),
+    hintKey: L('sections.caveman.level_desc'),
+    yamlKeys: ['caveman', 'level'],
+    keywords: ['caveman', 'lite', 'full', 'ultra'],
+  },
+  {
+    fieldId: 'cavemanCacheSize',
+    sectionId: 'caveman',
+    labelKey: L('sections.caveman.cache_size'),
+    hintKey: L('sections.caveman.cache_size_desc'),
+    yamlKeys: ['caveman', 'cache-size'],
+    keywords: ['caveman', 'cache', 'lru'],
+  },
+  {
+    fieldId: 'cavemanThreshold',
+    sectionId: 'caveman',
+    labelKey: L('sections.caveman.threshold'),
+    hintKey: L('sections.caveman.threshold_desc'),
+    yamlKeys: ['caveman', 'threshold'],
+    keywords: ['caveman', 'threshold', 'min-length'],
   },
 ];
 

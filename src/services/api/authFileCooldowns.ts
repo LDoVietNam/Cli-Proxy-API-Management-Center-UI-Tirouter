@@ -53,7 +53,11 @@ export function normalizeAuthFileCooldowns(
 ): AuthFileCooldownSnapshot | undefined {
   if (value === undefined) return undefined;
   const snapshot = { observedAt, receivedAtMs };
+  // null (or any other non-array payload) means the backend did not give us an
+  // interpretable cooldown state: unknown, not "no timers". Only an explicit
+  // empty array is a known-empty state.
   if (!Array.isArray(value)) return { ...snapshot, records: null };
+  if (value.length === 0) return { ...snapshot, records: [] };
   const records = value.map(normalizeRecord);
   // A malformed/future scope must not silently turn a restriction into "no timers".
   if (records.some((record) => record === null)) return { ...snapshot, records: null };

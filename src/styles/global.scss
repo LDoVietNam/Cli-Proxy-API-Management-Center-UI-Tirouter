@@ -12,6 +12,8 @@
 body {
   background-color: var(--bg-secondary);
   color: var(--text-primary);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
   transition:
     background-color $transition-normal,
     color $transition-normal;

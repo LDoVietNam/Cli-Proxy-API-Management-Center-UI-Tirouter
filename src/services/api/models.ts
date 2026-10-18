@@ -4,9 +4,12 @@
 
 import axios from 'axios';
 import { normalizeModelList } from '@/utils/models';
+import type { ModelInfo } from '@/utils/models';
 import { normalizeApiBase } from '@/utils/connection';
 import { apiCallApi, getApiCallErrorMessage } from './apiCall';
 import { isRecord } from '@/utils/helpers';
+import { apiClient } from './client';
+import { authFilesApi } from './authFiles';
 
 const DEFAULT_CLAUDE_BASE_URL = 'https://api.anthropic.com';
 const DEFAULT_GEMINI_BASE_URL = 'https://generativelanguage.googleapis.com';
@@ -320,5 +323,136 @@ export const modelsApi = {
     } finally {
       GEMINI_MODELS_IN_FLIGHT.delete(signature);
     }
+  },
+
+  /**
+   * Fetch real-time available models from the dynamic registry
+   */
+  async fetchAvailableModels(handler: 'openai' | 'claude' | 'gemini'): Promise<{
+    handler: string;
+    models: any[];
+    count: number;
+  }> {
+    const response = await apiClient.get<{
+      handler: string;
+      models: any[];
+      count: number;
+    }>(`/models/available/${handler}`);
+    return response;
+  },
+
+  /**
+   * Fetch real-time available models from the dynamic registry (generic)
+   */
+  async fetchAvailableModelsGeneric(handler: string): Promise<{
+    handler: string;
+    models: any[];
+    count: number;
+  }> {
+    const response = await apiClient.get<{
+      handler: string;
+      models: any[];
+      count: number;
+    }>('/models/available', { params: { handler } });
+    return response;
+  },
+
+  /**
+   * Fetch available models grouped by provider
+   */
+  async fetchAvailableModelsByProvider(provider?: string): Promise<{
+    models_by_provider: Record<string, any[]>;
+    total_models: number;
+    total_providers: number;
+  }> {
+    const url = provider
+      ? `/models/by-provider/${provider}`
+      : '/models/by-provider';
+    const response = await apiClient.get<{
+      models_by_provider: Record<string, any[]>;
+      total_models: number;
+      total_providers: number;
+    }>(url);
+    return response;
+  },
+
+  /**
+   * Fetch connected models from the management API — only models backed by
+   * configured auth credentials are returned (not the full upstream catalog).
+   */
+  async fetchConnectedModels(): Promise<ModelInfo[]> {
+    const authFiles = await apiClient.get<Record<string, unknown>>('/auth-files');
+    const files = Array.isArray(authFiles?.files) ? (authFiles.files as Record<string, unknown>[]) : [];
+
+    const connected = files.filter((entry) => {
+      const disabled = entry['disabled'] === true || entry['status'] === 'disabled';
+      const unavailable = entry['unavailable'] === true;
+      return !disabled && !unavailable;
+    });
+
+    const collected: { id: string; display_name?: string; type?: string; owned_by?: string }[] = [];
+    for (const entry of connected) {
+      const name = String(entry['name'] ?? entry['id'] ?? '').trim();
+      if (!name) continue;
+      try {
+        const models = await authFilesApi.getModelsForAuthFile(name);
+        collected.push(...models);
+      } catch {
+        // 单个 auth-file 模型获取失败不影响其他
+      }
+    }
+
+    const seen = new Set<string>();
+    const result: ModelInfo[] = [];
+    for (const raw of collected) {
+      const id = String(raw.id ?? '').trim();
+      if (!id || seen.has(id.toLowerCase())) continue;
+      seen.add(id.toLowerCase());
+      const model: ModelInfo = { name: id };
+      const alias = String(raw.display_name ?? '');
+      if (alias && alias !== id) {
+        model.alias = alias;
+      }
+      result.push(model);
+    }
+    return result;
+  },
+
+  /**
+   * Test a specific model with a chat completion request
+   */
+  async testModel(request: {
+    model: string;
+    provider: string;
+    auth_index?: string;
+    message?: string;
+    max_tokens?: number;
+    temperature?: number;
+    headers?: Record<string, string>;
+  }): Promise<{
+    ok: boolean;
+    model: string;
+    provider: string;
+    latency: string;
+    status_code?: number;
+    response?: string;
+    error?: string;
+    tokens_used?: number;
+    prompt_tokens?: number;
+    completion_tokens?: number;
+  }> {
+    const response = await apiClient.post('/models/test', request);
+    return response as {
+      ok: boolean;
+      model: string;
+      provider: string;
+      latency: string;
+      status_code?: number;
+      response?: string;
+      error?: string;
+      tokens_used?: number;
+      prompt_tokens?: number;
+      completion_tokens?: number;
+    };
   },
 };

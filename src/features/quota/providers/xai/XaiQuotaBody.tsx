@@ -3,14 +3,10 @@
  * 周/月账单水位条、按量付费余额。
  */
 
-import { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { XaiBillingSummary, XaiQuotaState } from '@/types';
-import { buildResetDisplay, formatQuotaResetTime, parseIsoToMs } from '@/utils/quota';
-import { useNow } from '@/hooks/useNow';
+import { formatQuotaResetTime } from '@/utils/quota';
 import { QuotaMeter } from '../../components/QuotaMeter';
-import { QuotaResetLabel } from '../../components/QuotaResetLabel';
-import { XAI_WEEKLY_ROW_ID, collectQuotaRowInstants, pickUrgentRowId } from '../../resetSchedule';
 import type { QuotaBodyProps } from '../../types';
 
 const formatUsdFromCents = (cents: number | null): string => {
@@ -64,16 +60,7 @@ const resolveXaiPlan = (
 };
 
 export function XaiQuotaBody({ quota, classes }: QuotaBodyProps<XaiQuotaState>) {
-  const { t, i18n } = useTranslation();
-  // Ahead of the early return below — hooks cannot be conditional.
-  const now = useNow();
-  const locale = i18n.resolvedLanguage;
-  // Only the weekly limit is a quota window; the monthly figure is a billing
-  // cycle, so it is never the row that "recovers first".
-  const weeklySoon = useMemo(
-    () => pickUrgentRowId(collectQuotaRowInstants('xai', quota), now) === XAI_WEEKLY_ROW_ID,
-    [quota, now]
-  );
+  const { t } = useTranslation();
   const billing = quota.billing;
 
   if (!billing) {
@@ -98,15 +85,6 @@ export function XaiQuotaBody({ quota, classes }: QuotaBodyProps<XaiQuotaState>) 
   const percentLabel = formatXaiPercent(remaining);
   const amountLabel = formatXaiRemainingAmount(billing);
   const resetLabel = formatQuotaResetTime(billing.billingPeriodEnd);
-  // The monthly row is a billing cycle, so it carries no resetAtMs (that field
-  // is derived from periodEnd, the weekly quota window). Parse for the
-  // countdown; the summary keeps the two periods deliberately distinct.
-  const monthlyResetDisplay = buildResetDisplay(
-    resetLabel,
-    parseIsoToMs(billing.billingPeriodEnd),
-    now,
-    locale
-  );
   const onDemandCap = billing.onDemandCapCents ?? 0;
   const clampedOnDemandUsed =
     billing.onDemandUsedPercent === null
@@ -123,20 +101,13 @@ export function XaiQuotaBody({ quota, classes }: QuotaBodyProps<XaiQuotaState>) 
       : null;
   const weeklyRemaining = weeklyUsed === null ? null : Math.max(0, Math.min(100, 100 - weeklyUsed));
   const weeklyResetLabel = formatQuotaResetTime(billing.periodEnd);
-  const weeklyResetDisplay = buildResetDisplay(
-    weeklyResetLabel === '-' ? null : t('xai_quota.reset_at', { time: weeklyResetLabel }),
-    billing.resetAtMs,
-    now,
-    locale
-  );
   const hasWeeklyData =
     billing.periodType === 'weekly' &&
     (weeklyUsed !== null || Boolean(billing.periodEnd) || billing.productUsage.length > 0);
   const hasMonthlyData =
-    (billing.monthlyLimitCents !== null ||
-      billing.usedCents !== null ||
-      Boolean(billing.billingPeriodEnd)) &&
-    !(hasWeeklyData && billing.monthlyLimitCents === 0 && billing.usedCents === 0);
+    billing.monthlyLimitCents !== null ||
+    billing.usedCents !== null ||
+    Boolean(billing.billingPeriodEnd);
 
   return (
     <>
@@ -149,26 +120,25 @@ export function XaiQuotaBody({ quota, classes }: QuotaBodyProps<XaiQuotaState>) 
         </div>
       )}
       {hasWeeklyData && (
-        <div
-          className={classes.quotaRow}
-          title={weeklySoon ? t('quota_management.soonest_row_hint') : undefined}
-        >
+        <div className={classes.quotaRow}>
           <div className={classes.quotaRowHeader}>
             <span className={classes.quotaModel}>{t('xai_quota.weekly_limit')}</span>
             <div className={classes.quotaMeta}>
               <span className={classes.quotaPercent}>
-                {weeklyUsed === null
-                  ? t('xai_quota.usage_unavailable')
-                  : t('xai_quota.used_percent', { percent: formatXaiPercent(weeklyUsed) })}
+                {t('xai_quota.used_percent', {
+                  percent: formatXaiPercent(weeklyUsed),
+                })}
               </span>
-              {weeklyResetDisplay && (
-                <QuotaResetLabel display={weeklyResetDisplay} classes={classes} soon={weeklySoon} />
+              {weeklyResetLabel !== '-' && (
+                <span className={classes.quotaReset}>
+                  {t('xai_quota.reset_at', {
+                    time: weeklyResetLabel,
+                  })}
+                </span>
               )}
             </div>
           </div>
-          {weeklyRemaining !== null && (
-            <QuotaMeter percent={weeklyRemaining} classes={classes} index={0} />
-          )}
+          <QuotaMeter percent={weeklyRemaining} classes={classes} index={0} />
         </div>
       )}
       {billing.productUsage.map((item, index) => {
@@ -221,9 +191,7 @@ export function XaiQuotaBody({ quota, classes }: QuotaBodyProps<XaiQuotaState>) 
             <div className={classes.quotaMeta}>
               <span className={classes.quotaPercent}>{percentLabel}</span>
               <span className={classes.quotaAmount}>{amountLabel}</span>
-              {monthlyResetDisplay && (
-                <QuotaResetLabel display={monthlyResetDisplay} classes={classes} />
-              )}
+              {resetLabel !== '-' && <span className={classes.quotaReset}>{resetLabel}</span>}
             </div>
           </div>
           <QuotaMeter

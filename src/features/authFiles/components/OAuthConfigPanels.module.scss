@@ -45,6 +45,14 @@
   min-width: 0;
 }
 
+/* ---------- 加载骨架（与 quota 页 Skeleton 模式一致） ---------- */
+
+.skeletonList {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
 /* ---------- 视图切换（列表/图谱） ---------- */
 
 .viewModeSwitch {

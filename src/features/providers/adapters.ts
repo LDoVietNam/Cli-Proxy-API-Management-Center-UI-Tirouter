@@ -7,6 +7,13 @@ import {
   getApiKeyFunProtocolUrls,
   resolveApiKeyFunBaseUrl,
 } from './sponsor';
+import { CLAUDE_API_DISPLAY_NAME } from './claudeApi';
+import {
+  CODE0_DISPLAY_NAME,
+  CODE0_PROTOCOL_LABELS,
+  getCode0ProtocolUrls,
+  resolveCode0BaseUrl,
+} from './code0';
 import {
   FENNO_AI_DISPLAY_NAME,
   FENNO_AI_PROTOCOL_LABELS,
@@ -20,11 +27,39 @@ import {
   resolveQiniuCloudBaseUrl,
 } from './qiniuCloud';
 import {
+  LMU_AI_DISPLAY_NAME,
+  LMU_AI_PROTOCOL_LABELS,
+  getLmuAIProtocolUrls,
+  resolveLmuAIBaseUrl,
+} from './lmuAI';
+import {
   KIMI_DISPLAY_NAME,
   KIMI_PROTOCOL_LABELS,
   getKimiProtocolUrls,
   resolveKimiBaseUrl,
 } from './kimi';
+import {
+  GEMINI_DISPLAY_NAME,
+  GEMINI_PROTOCOL_LABELS,
+  getGeminiProtocolUrls,
+  resolveGeminiBaseUrl,
+} from './gemini';
+import {
+  OPENROUTER_PROVIDER_NAME,
+  OPENROUTER_DISPLAY_NAME,
+  resolveOpenRouterBaseUrl,
+  getOpenRouterProtocolUrls,
+} from './openrouter';
+import {
+  GROQ_DISPLAY_NAME,
+  resolveGroqBaseUrl,
+  getGroqProtocolUrls,
+} from './groq';
+import {
+  ANTHROPIC_DISPLAY_NAME,
+  resolveAnthropicBaseUrl,
+  getAnthropicProtocolUrls,
+} from './anthropic';
 import type {
   ProviderBrand,
   ProviderResource,
@@ -59,7 +94,7 @@ const truncateForId = (value: string | undefined | null): string => {
 };
 
 function providerKeyToResource(
-  brand: 'gemini' | 'interactions' | 'codex' | 'meta' | 'xai' | 'claude' | 'vertex',
+  brand: 'gemini' | 'interactions' | 'codex' | 'xai' | 'claude' | 'claudeApi' | 'vertex' | 'openrouter' | 'anthropic',
   config: GeminiKeyConfig | ProviderKeyConfig,
   index: number
 ): ProviderResource {
@@ -69,11 +104,21 @@ function providerKeyToResource(
   if (brand === 'codex' || brand === 'xai') {
     flags.websockets = (config as ProviderKeyConfig).websockets === true;
   }
-  if (brand === 'claude') {
-    const claudeConfig = config as ProviderKeyConfig;
-    flags.cloakEnabled = Boolean(claudeConfig.cloak?.mode?.trim());
-    flags.claudeCodeCliProfile = claudeConfig.fingerprintProfile === 'claude-code-cli';
+  if (brand === 'claude' || brand === 'claudeApi') {
+    const cloak = (config as ProviderKeyConfig).cloak;
+    flags.cloakEnabled = Boolean(cloak?.mode?.trim());
+    if ((config as ProviderKeyConfig).fingerprintProfile === 'claude-code-cli') {
+      flags.claudeCodeCliProfile = true;
+    }
   }
+
+  // Key-based brands (gemini/codex/xai/claude/vertex/interactions) store a single
+  // primary api-key per entry, but may be configured with multiple rotated keys
+  // via the management API. The workbench currently renders them as one resource
+  // per config entry, so each resource carries exactly one key. Expose that as
+  // apiKeyEntryCount so the table can show a "Connected via API key" signal with
+  // a real key count instead of always reporting 0.
+  const apiKeyEntryCount = apiKey ? 1 : 0;
 
   const selector: ProviderResourceSelector = {
     brand,
@@ -99,7 +144,7 @@ function providerKeyToResource(
     priority: normalizePriority(config.priority),
     headerCount: countHeaders(config.headers),
     excludedModelCount: stripDisableAllModelsRule(config.excludedModels).length,
-    apiKeyEntryCount: 0,
+    apiKeyEntryCount,
     disabled,
     flags,
     selector,
@@ -119,10 +164,6 @@ export function codexToResource(config: ProviderKeyConfig, index: number): Provi
   return providerKeyToResource('codex', config, index);
 }
 
-export function metaToResource(config: ProviderKeyConfig, index: number): ProviderResource {
-  return providerKeyToResource('meta', config, index);
-}
-
 export function xaiToResource(config: ProviderKeyConfig, index: number): ProviderResource {
   return providerKeyToResource('xai', config, index);
 }
@@ -131,8 +172,24 @@ export function claudeToResource(config: ProviderKeyConfig, index: number): Prov
   return providerKeyToResource('claude', config, index);
 }
 
+export function claudeApiToResource(config: ProviderKeyConfig, index: number): ProviderResource {
+  const resource = providerKeyToResource('claudeApi', config, index);
+  return {
+    ...resource,
+    name: CLAUDE_API_DISPLAY_NAME,
+  };
+}
+
 export function vertexToResource(config: ProviderKeyConfig, index: number): ProviderResource {
   return providerKeyToResource('vertex', config, index);
+}
+
+export function openrouterToResource(config: ProviderKeyConfig, index: number): ProviderResource {
+  return providerKeyToResource('openrouter', config, index);
+}
+
+export function anthropicToResource(config: ProviderKeyConfig, index: number): ProviderResource {
+  return providerKeyToResource('anthropic', config, index);
 }
 
 export function openaiToResource(config: OpenAIProviderConfig, index: number): ProviderResource {
@@ -320,6 +377,15 @@ export function apiKeyFunToResource(raw: SponsorProviderRaw): ProviderResource |
   });
 }
 
+export function code0ToResource(raw: SponsorProviderRaw): ProviderResource | null {
+  return sponsorRawToResource('code0', raw, {
+    displayName: CODE0_DISPLAY_NAME,
+    protocolLabels: CODE0_PROTOCOL_LABELS,
+    resolveBaseUrl: resolveCode0BaseUrl,
+    getProtocolUrls: getCode0ProtocolUrls,
+  });
+}
+
 export function fennoAIToResource(raw: SponsorProviderRaw): ProviderResource | null {
   return sponsorRawToResource('fennoAI', raw, {
     displayName: FENNO_AI_DISPLAY_NAME,
@@ -338,11 +404,56 @@ export function qiniuCloudToResource(raw: SponsorProviderRaw): ProviderResource 
   });
 }
 
+export function lmuAIToResource(raw: SponsorProviderRaw): ProviderResource | null {
+  return sponsorRawToResource('lmuAI', raw, {
+    displayName: LMU_AI_DISPLAY_NAME,
+    protocolLabels: LMU_AI_PROTOCOL_LABELS,
+    resolveBaseUrl: resolveLmuAIBaseUrl,
+    getProtocolUrls: getLmuAIProtocolUrls,
+  });
+}
+
 export function kimiToResource(raw: SponsorProviderRaw): ProviderResource | null {
   return sponsorRawToResource('kimi', raw, {
     displayName: KIMI_DISPLAY_NAME,
     protocolLabels: KIMI_PROTOCOL_LABELS,
     resolveBaseUrl: resolveKimiBaseUrl,
     getProtocolUrls: getKimiProtocolUrls,
+  });
+}
+
+export function openrouterToResourceSponsor(raw: SponsorProviderRaw): ProviderResource | null {
+  return sponsorRawToResource(OPENROUTER_PROVIDER_NAME as SponsorProviderBrand, raw, {
+    displayName: OPENROUTER_DISPLAY_NAME,
+    protocolLabels: ['openai'] as const,
+    resolveBaseUrl: resolveOpenRouterBaseUrl,
+    getProtocolUrls: getOpenRouterProtocolUrls,
+  });
+}
+
+export function groqToResourceSponsor(raw: SponsorProviderRaw): ProviderResource | null {
+  return sponsorRawToResource('groq' as SponsorProviderBrand, raw, {
+    displayName: GROQ_DISPLAY_NAME,
+    protocolLabels: ['openai'] as const,
+    resolveBaseUrl: resolveGroqBaseUrl,
+    getProtocolUrls: getGroqProtocolUrls,
+  });
+}
+
+export function geminiToResourceSponsor(raw: SponsorProviderRaw): ProviderResource | null {
+  return sponsorRawToResource('gemini', raw, {
+    displayName: GEMINI_DISPLAY_NAME,
+    protocolLabels: GEMINI_PROTOCOL_LABELS,
+    resolveBaseUrl: resolveGeminiBaseUrl,
+    getProtocolUrls: getGeminiProtocolUrls,
+  });
+}
+
+export function anthropicToResourceSponsor(raw: SponsorProviderRaw): ProviderResource | null {
+  return sponsorRawToResource('anthropic', raw, {
+    displayName: ANTHROPIC_DISPLAY_NAME,
+    protocolLabels: ['anthropic'] as const,
+    resolveBaseUrl: resolveAnthropicBaseUrl,
+    getProtocolUrls: getAnthropicProtocolUrls,
   });
 }

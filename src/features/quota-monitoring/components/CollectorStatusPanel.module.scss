@@ -1,0 +1,234 @@
+.panel {
+  background: var(--surface-primary);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg);
+  padding: var(--space-5);
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+.statusHeader {
+  margin-bottom: var(--space-4);
+  padding-bottom: var(--space-4);
+  border-bottom: 1px solid var(--border-color);
+}
+
+.statusIndicator {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-full);
+  font-size: var(--font-size-sm);
+  font-weight: 500;
+}
+
+.statusIndicator.running {
+  background: rgba(var(--viz-success-rgb), 0.15);
+  color: var(--viz-success);
+}
+
+.statusIndicator.stopped {
+  background: rgba(var(--text-quaternary-rgb), 0.15);
+  color: var(--text-quaternary);
+}
+
+.pulse {
+  animation: pulse 2s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+
+.statusText {
+  text-transform: capitalize;
+}
+
+.configGrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-3);
+  margin-bottom: var(--space-4);
+  padding-bottom: var(--space-4);
+  border-bottom: 1px solid var(--border-color);
+}
+
+.configItem {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.configItem svg {
+  color: var(--text-tertiary);
+  flex-shrink: 0;
+}
+
+.configInfo {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.configLabel {
+  font-size: var(--font-size-xs);
+  color: var(--text-tertiary);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.configValue {
+  font-size: var(--font-size-sm);
+  font-weight: 500;
+  color: var(--text-primary);
+  font-family: var(--font-mono);
+}
+
+.accountsSection {
+  flex: 1;
+  overflow-y: auto;
+}
+
+.sectionTitle {
+  margin: 0 0 var(--space-3);
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.accountsList {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.accountItem {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: var(--space-3);
+  background: var(--surface-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  transition: border-color var(--transition-fast);
+}
+
+.accountItem:hover {
+  border-color: var(--border-hover);
+}
+
+.accountMain {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-width: 0;
+}
+
+.accountProvider {
+  font-size: var(--font-size-xs);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--viz-primary);
+}
+
+.accountModel {
+  font-size: var(--font-size-sm);
+  font-weight: 500;
+  color: var(--text-primary);
+  font-family: var(--font-mono);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.accountMeta {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+}
+
+.accountId {
+  font-size: var(--font-size-xs);
+  color: var(--text-tertiary);
+  font-family: var(--font-mono);
+}
+
+.accountEnabled {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  font-size: var(--font-size-xs);
+  font-weight: 500;
+  padding: 2px 8px;
+  border-radius: var(--radius-full);
+}
+
+.accountEnabled.enabled {
+  background: rgba(var(--viz-success-rgb), 0.15);
+  color: var(--viz-success);
+}
+
+.accountEnabled.disabled {
+  background: rgba(var(--text-quaternary-rgb), 0.15);
+  color: var(--text-quaternary);
+}
+
+.accountAuthType {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  font-size: var(--font-size-xs);
+  color: var(--text-tertiary);
+  background: var(--surface-tertiary);
+  padding: 2px 8px;
+  border-radius: var(--radius-sm);
+}
+
+.accountAuthType svg {
+  flex-shrink: 0;
+}
+
+.emptyState {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-3);
+  color: var(--text-tertiary);
+  text-align: center;
+  padding: var(--space-6);
+}
+
+.emptyState svg {
+  opacity: 0.5;
+}
+
+.emptyState p {
+  margin: 0;
+  font-size: var(--font-size-sm);
+}
+
+@media (max-width: 640px) {
+  .configGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .accountItem {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: var(--space-2);
+  }
+
+  .accountMeta {
+    width: 100%;
+    justify-content: space-between;
+  }
+}

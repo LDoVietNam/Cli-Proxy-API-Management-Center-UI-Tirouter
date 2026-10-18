@@ -53,6 +53,8 @@ export interface ProviderKeyConfig {
   excludedModels?: string[];
   disableCooling?: boolean;
   cloak?: CloakConfig;
+  experimentalCchSigning?: boolean;
+  /** Opt-in TLS/headers fingerprint profile, e.g. 'claude-code-cli'. */
   fingerprintProfile?: string;
   authIndex?: string;
 }

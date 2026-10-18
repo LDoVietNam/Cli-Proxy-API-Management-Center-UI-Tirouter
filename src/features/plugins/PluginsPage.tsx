@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/Button';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { Input } from '@/components/ui/Input';
+import { Skeleton } from '@/components/ui/Skeleton';
 import { Select } from '@/components/ui/Select';
 import { Sheet } from '@/components/ui/Sheet';
 import { ToggleSwitch } from '@/components/ui/ToggleSwitch';
@@ -545,10 +546,10 @@ export function PluginsPage() {
         <div className={styles.pluginList}>
           {Array.from({ length: 4 }, (_, index) => (
             <div key={index} className={styles.skeletonRow}>
-              <div className={styles.skeletonAvatar} />
+              <Skeleton width={40} height={40} rounded={10} />
               <div className={styles.skeletonText}>
-                <div className={styles.skeletonLine} />
-                <div className={styles.skeletonLine} />
+                <Skeleton width="45%" height={14} />
+                <Skeleton width="100%" height={14} />
               </div>
             </div>
           ))}

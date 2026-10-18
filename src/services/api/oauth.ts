@@ -9,23 +9,26 @@ import {
 } from '@/utils/providerKeys';
 
 export type BuiltInOAuthProvider =
-  'codex' | 'anthropic' | 'antigravity' | 'kimi' | 'kimi-ai' | 'xai' | 'devin' | 'meta';
+  | 'kimi'
+  | 'codex'
+  | 'anthropic'
+  | 'antigravity'
+  | 'xai'
+  | 'kilo'
+  | 'devin'
+  | 'freebuff'
+  | 'google'
+  | 'mistral'
+  | 'cohere'
+  | 'huggingface';
 
 export interface OAuthStartResponse {
   url: string;
   state?: string;
-  user_code?: string;
-  flow?: string;
-  expires_in?: number;
 }
 
 export interface OAuthCallbackResponse {
   status: 'ok';
-}
-
-export interface OAuthCancelResponse {
-  status: 'ok';
-  cancelled: boolean;
 }
 
 const WEBUI_SUPPORTED = new Set<string>(['codex', 'anthropic', 'antigravity', 'xai', 'devin']);
@@ -47,28 +50,27 @@ export const oauthApi = {
     }
     return apiClient.get<OAuthStartResponse>(`/${providerKey}-auth-url`, {
       params: Object.keys(params).length ? params : undefined,
-      ...(signal ? { signal } : {}),
+      signal,
     });
   },
 
   getAuthStatus: (state: string, signal?: AbortSignal) =>
     apiClient.get<{ status: 'ok' | 'wait' | 'error'; error?: string }>(`/get-auth-status`, {
       params: { state },
-      ...(signal ? { signal } : {}),
-    }),
-
-  cancelSession: (state: string, signal?: AbortSignal) =>
-    apiClient.delete<OAuthCancelResponse>('/oauth-session', {
-      params: { state },
-      ...(signal ? { signal } : {}),
+      signal,
     }),
 
   submitCallback: (provider: string, redirectUrl: string, signal?: AbortSignal) => {
     const providerKey = normalizeProviderForManagementPath(provider);
-    return apiClient.post<OAuthCallbackResponse>(
-      '/oauth-callback',
-      { provider: providerKey, redirect_url: redirectUrl },
-      signal ? { signal } : undefined
-    );
+    return apiClient.post<OAuthCallbackResponse>('/oauth-callback', {
+      provider: providerKey,
+      redirect_url: redirectUrl,
+    }, signal ? { signal } : undefined);
   },
+
+  cancelSession: (state: string, signal?: AbortSignal) =>
+    apiClient.delete<{ status: 'ok'; cancelled: boolean }>('/oauth-session', {
+      params: { state },
+      signal,
+    }),
 };

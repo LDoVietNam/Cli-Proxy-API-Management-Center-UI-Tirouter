@@ -38,12 +38,22 @@ import { FloatingSaveBar } from './components/FloatingSaveBar';
 import { ModeSwitch } from './components/ModeSwitch';
 import { SourcePanel, SourceSearchBar } from './components/SourcePanel';
 import { SectionAdvanced } from './components/sections/SectionAdvanced';
+import { SectionAdvancedConfigs } from './components/sections/SectionAdvancedConfigs';
+import { SectionCaveman } from './components/sections/SectionCaveman';
 import { SectionCommon } from './components/sections/SectionCommon';
 import { SectionConnectivity } from './components/sections/SectionConnectivity';
+import { SectionInfrastructure } from './components/sections/SectionInfrastructure';
 import { SectionLogging } from './components/sections/SectionLogging';
+import { SectionLLMFeatures } from './components/sections/SectionLLMFeatures';
 import { SectionNetwork } from './components/sections/SectionNetwork';
 import { SectionPayload } from './components/sections/SectionPayload';
+import { SectionPrompts } from './components/sections/SectionPrompts';
+import { SectionPromptNorm } from './components/sections/SectionPromptNorm';
+import { SectionProtocolConfigs } from './components/sections/SectionProtocolConfigs';
 import { SectionQuota } from './components/sections/SectionQuota';
+import { SectionQuotaExtended } from './components/sections/SectionQuotaExtended';
+import { SectionRTK } from './components/sections/SectionRTK';
+import { SectionRoutingExtended } from './components/sections/SectionRoutingExtended';
 import { SectionStreaming } from './components/sections/SectionStreaming';
 import styles from './ConfigPage.module.scss';
 
@@ -288,6 +298,26 @@ export function ConfigPage() {
             hasPayloadValidationErrors={visualHasPayloadValidationErrors}
           />
         );
+      case 'llmFeatures':
+        return <SectionLLMFeatures {...sectionProps} />;
+      case 'routingExtended':
+        return <SectionRoutingExtended {...sectionProps} />;
+      case 'quotaExtended':
+        return <SectionQuotaExtended {...sectionProps} />;
+      case 'protocolConfigs':
+        return <SectionProtocolConfigs {...sectionProps} />;
+      case 'infrastructure':
+        return <SectionInfrastructure {...sectionProps} />;
+      case 'advancedConfigs':
+        return <SectionAdvancedConfigs {...sectionProps} />;
+      case 'prompts':
+        return <SectionPrompts {...sectionProps} />;
+      case 'promptNorm':
+        return <SectionPromptNorm {...sectionProps} />;
+      case 'rtk':
+        return <SectionRTK {...sectionProps} />;
+      case 'caveman':
+        return <SectionCaveman {...sectionProps} />;
     }
   };
 

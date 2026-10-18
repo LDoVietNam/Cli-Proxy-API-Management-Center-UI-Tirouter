@@ -14,7 +14,6 @@ export type SecondaryScreenShellProps = {
   loadingLabel?: ReactNode;
   className?: string;
   contentClassName?: string;
-  topBarClassName?: string;
   children?: ReactNode;
 };
 
@@ -30,7 +29,6 @@ export const SecondaryScreenShell = forwardRef<HTMLDivElement, SecondaryScreenSh
       loadingLabel = 'Loading...',
       className = '',
       contentClassName = '',
-      topBarClassName = '',
       children,
     },
     ref
@@ -42,7 +40,7 @@ export const SecondaryScreenShell = forwardRef<HTMLDivElement, SecondaryScreenSh
 
     return (
       <div className={containerClassName} ref={ref}>
-        <div className={[styles.topBar, topBarClassName].filter(Boolean).join(' ')}>
+        <div className={styles.topBar}>
           {onBack ? (
             <Button
               variant="ghost"

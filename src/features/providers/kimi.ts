@@ -18,7 +18,7 @@ export const KIMI_BASE_URL_OPTIONS = [
     descriptionKey: 'domestic',
     baseUrl: KIMI_DOMESTIC_OPENAI_BASE_URL,
     openaiBaseUrl: KIMI_DOMESTIC_OPENAI_BASE_URL,
-    codexBaseUrl: KIMI_DOMESTIC_OPENAI_BASE_URL,
+    codexBaseUrl: '',
     anthropicBaseUrl: KIMI_DOMESTIC_ANTHROPIC_BASE_URL,
     geminiBaseUrl: '',
   },
@@ -27,18 +27,16 @@ export const KIMI_BASE_URL_OPTIONS = [
     descriptionKey: 'overseas',
     baseUrl: KIMI_OPENAI_BASE_URL,
     openaiBaseUrl: KIMI_OPENAI_BASE_URL,
-    codexBaseUrl: KIMI_OPENAI_BASE_URL,
+    codexBaseUrl: '',
     anthropicBaseUrl: KIMI_ANTHROPIC_BASE_URL,
     geminiBaseUrl: '',
   },
 ] as const;
 
-export const KIMI_PROTOCOL_LABELS = ['openai', 'anthropic', 'codexResponses'] as const;
+export const KIMI_PROTOCOL_LABELS = ['openai', 'anthropic'] as const;
 
-export const getKimiAffiliateUrl = (language: string | undefined | null): string =>
-  language?.toLowerCase().startsWith('zh')
-    ? KIMI_CHINESE_AFFILIATE_URL
-    : KIMI_INTERNATIONAL_AFFILIATE_URL;
+export const getKimiAffiliateUrl = (): string =>
+  KIMI_INTERNATIONAL_AFFILIATE_URL;
 
 const normalizeText = (value: string | undefined | null): string =>
   String(value ?? '')
@@ -54,7 +52,6 @@ export const resolveKimiBaseUrl = (value: string | undefined | null): string => 
     (option) =>
       normalized === normalizeBaseUrl(option.baseUrl) ||
       normalized === normalizeBaseUrl(option.openaiBaseUrl) ||
-      normalized === normalizeBaseUrl(option.codexBaseUrl) ||
       normalized === normalizeBaseUrl(option.anthropicBaseUrl)
   );
   if (matched) return matched.baseUrl;
@@ -73,7 +70,7 @@ export const getKimiProtocolUrls = (value: string | undefined | null) => {
   return {
     anthropic: matched.anthropicBaseUrl,
     openai: matched.openaiBaseUrl,
-    codex: matched.codexBaseUrl,
+    codex: '',
     gemini: '',
   };
 };
@@ -96,14 +93,6 @@ export const isKimiClaudeProvider = (config: ProviderKeyConfig | undefined | nul
   );
 };
 
-export const isKimiCodexProvider = (config: ProviderKeyConfig | undefined | null): boolean => {
-  if (!config) return false;
-  const baseUrl = normalizeBaseUrl(config.baseUrl);
-  return KIMI_BASE_URL_OPTIONS.some(
-    (option) => baseUrl === normalizeBaseUrl(option.codexBaseUrl)
-  );
-};
-
 export const buildKimiRaw = (config: Config | null | undefined): SponsorProviderRaw => ({
   openai: (config?.openaiCompatibility ?? [])
     .map((item, index) => ({ config: item, index: item.sourceIndex ?? index }))
@@ -111,8 +100,7 @@ export const buildKimiRaw = (config: Config | null | undefined): SponsorProvider
   claude: (config?.claudeApiKeys ?? [])
     .map((item, index) => ({ config: item, index }))
     .filter((item) => isKimiClaudeProvider(item.config)),
-  codex: (config?.codexApiKeys ?? [])
-    .map((item, index) => ({ config: item, index }))
-    .filter((item) => isKimiCodexProvider(item.config)),
+  codex: [],
   gemini: [],
+  anthropic: [],
 });

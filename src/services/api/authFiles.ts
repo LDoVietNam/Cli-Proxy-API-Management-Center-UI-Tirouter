@@ -6,18 +6,19 @@ import { apiClient } from './client';
 import type { AuthFilesResponse } from '@/types/authFile';
 import type { OAuthModelAliasEntry } from '@/types';
 import { normalizeOAuthProviderKey } from '@/utils/providerKeys';
-import { getQuotaCacheKey } from '@/utils/quota/identity';
 import {
   normalizeRecentRequestAuthIndex,
   normalizeRecentRequestBuckets,
   normalizeUsageTotal,
 } from '@/utils/recentRequests';
 import { parseTimestampMs } from '@/utils/timestamp';
-import { normalizeAuthFileCooldowns, normalizeCooldownTimestamp } from './authFileCooldowns';
+import {
+  normalizeAuthFileCooldowns,
+  normalizeCooldownTimestamp,
+} from './authFileCooldowns';
 
 type StatusError = { status?: number };
 type AuthFileStatusResponse = { status: string; disabled: boolean };
-export type AuthFileLookup = { name: string; authIndex?: string };
 type AuthFileEntry = AuthFilesResponse['files'][number];
 export type AuthFileFieldsPatch = {
   prefix?: string;
@@ -211,8 +212,10 @@ const mergeAuthFileEntries = (entries: AuthFileEntry[]): AuthFileEntry => {
 
   rest.forEach((entry) => {
     Object.entries(entry).forEach(([key, value]) => {
-      // Cooldown snapshots are atomic: [] and null are meaningful, not missing fields.
-      if (key === 'cooldowns' && Object.prototype.hasOwnProperty.call(merged, key)) return;
+      // Cooldown timers are point-in-time snapshots: the authoritative entry's
+      // state ([] / null / records) must never be backfilled with a stale
+      // restriction from a lower-priority duplicate.
+      if (key === 'cooldowns') return;
       if (!hasMeaningfulValue(merged[key]) && hasMeaningfulValue(value)) {
         merged[key] = value;
       }
@@ -245,11 +248,7 @@ const readRuntimeOnlyField = (entry: AuthFileEntry): boolean => {
  * camelCase 字段上。原始字段全部透传——quota resolvers 仍直接读
  * plan_type / id_token / metadata / attributes 等生字段。
  */
-const normalizeAuthFileEntry = (
-  entry: AuthFileEntry,
-  observedAt: string | undefined,
-  receivedAtMs: number
-): AuthFileEntry => {
+const normalizeAuthFileEntry = (entry: AuthFileEntry): AuthFileEntry => {
   const declaredStatusMessage =
     typeof entry.statusMessage === 'string' ? entry.statusMessage.trim() : '';
   const statusMessage = readTextField(entry, 'status_message') || declaredStatusMessage;
@@ -264,7 +263,6 @@ const normalizeAuthFileEntry = (
 
   return {
     ...entry,
-    cooldownSnapshot: normalizeAuthFileCooldowns(entry.cooldowns, observedAt, receivedAtMs),
     runtimeOnly: readRuntimeOnlyField(entry),
     authIndex: normalizeRecentRequestAuthIndex(entry['auth_index'] ?? entry.authIndex),
     recentRequests: normalizeRecentRequestBuckets(entry.recent_requests ?? entry.recentRequests),
@@ -282,21 +280,15 @@ const normalizeAuthFileEntry = (
 
 export const normalizeAuthFilesResponse = (
   payload: AuthFilesResponse,
-  receivedAtMs = Date.now()
+  receivedAtMs: number = Date.now()
 ): AuthFilesResponse => {
-  const observedAt = normalizeCooldownTimestamp(payload?.observed_at);
   const files = Array.isArray(payload?.files) ? payload.files : [];
+  const observedAt = normalizeCooldownTimestamp(payload?.observed_at);
   const grouped = new Map<string, AuthFileEntry[]>();
 
   files.forEach((entry) => {
     const name = readTextField(entry, 'name');
-    const key = name
-      ? getQuotaCacheKey({
-          ...entry,
-          name,
-          authIndex: normalizeRecentRequestAuthIndex(entry['auth_index'] ?? entry.authIndex),
-        })
-      : JSON.stringify(entry);
+    const key = name || JSON.stringify(entry);
     const bucket = grouped.get(key);
     if (bucket) {
       bucket.push(entry);
@@ -305,26 +297,25 @@ export const normalizeAuthFilesResponse = (
     grouped.set(key, [entry]);
   });
 
-  const normalizedFiles = Array.from(grouped.values()).map((entries) =>
-    normalizeAuthFileEntry(mergeAuthFileEntries(entries), observedAt, receivedAtMs)
-  );
-  normalizedFiles.sort((left, right) => {
-    const nameOrder = readTextField(left, 'name').localeCompare(
-      readTextField(right, 'name'),
-      undefined,
-      { sensitivity: 'accent' }
-    );
-    if (nameOrder !== 0) return nameOrder;
-    return String(left.authIndex ?? '').localeCompare(String(right.authIndex ?? ''), undefined, {
-      sensitivity: 'accent',
-    });
+  const normalizedFiles = Array.from(grouped.values()).map((entries) => {
+    const merged = normalizeAuthFileEntry(mergeAuthFileEntries(entries));
+    if (!('cooldowns' in merged)) return merged;
+    return {
+      ...merged,
+      cooldownSnapshot: normalizeAuthFileCooldowns(merged.cooldowns, observedAt, receivedAtMs),
+    };
   });
+  normalizedFiles.sort((left, right) =>
+    readTextField(left, 'name').localeCompare(readTextField(right, 'name'), undefined, {
+      sensitivity: 'accent',
+    })
+  );
 
   return {
     ...payload,
-    observedAt,
     files: normalizedFiles,
     total: normalizedFiles.length,
+    ...(observedAt ? { observedAt } : {}),
   };
 };
 
@@ -432,14 +423,23 @@ export const serializeOauthModelAliases = (
 
 const OAUTH_MODEL_ALIAS_ENDPOINT = '/oauth-model-alias';
 
+export interface AuthFilesListFilter {
+  name?: string;
+  authIndex?: string;
+}
+
 export const authFilesApi = {
-  list: async (lookup?: AuthFileLookup) =>
-    normalizeAuthFilesResponse(
-      await apiClient.get<AuthFilesResponse>(
-        '/auth-files',
-        lookup ? { params: { name: lookup.name, auth_index: lookup.authIndex } } : undefined
-      )
-    ),
+  list: async (filter?: AuthFilesListFilter) => {
+    const params: Record<string, string> = {};
+    const name = filter?.name?.trim();
+    const authIndex = filter?.authIndex?.trim();
+    if (name) params.name = name;
+    if (authIndex) params.auth_index = authIndex;
+    const config = Object.keys(params).length > 0 ? { params } : undefined;
+    return normalizeAuthFilesResponse(
+      await apiClient.get<AuthFilesResponse>('/auth-files', config)
+    );
+  },
 
   setStatus: (name: string, disabled: boolean) =>
     apiClient.patch<AuthFileStatusResponse>('/auth-files/status', { name, disabled }),
@@ -448,10 +448,10 @@ export const authFilesApi = {
     apiClient.patch('/auth-files/fields', { name, ...fields }),
 
   requestManualRefresh: async (name: string, authIndex?: string): Promise<void> => {
-    // v7.3.0 returns the complete Auth (including tokens). Never return it to callers.
-    await apiClient.post<unknown>('/auth-files/refresh', {
+    const trimmedIndex = authIndex?.trim();
+    await apiClient.post('/auth-files/refresh', {
       name,
-      ...(authIndex ? { auth_index: authIndex } : {}),
+      ...(trimmedIndex ? { auth_index: trimmedIndex } : {}),
     });
   },
 

@@ -1,6 +1,7 @@
 import { useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
+import { Skeleton } from '@/components/ui/Skeleton';
 import {
   IconBot,
   IconFileText,
@@ -40,8 +41,17 @@ export function DashboardPage() {
   const serverVersion = useAuthStore((state) => state.serverVersion);
   const serverBuildDate = useAuthStore((state) => state.serverBuildDate);
 
-  const { connectionStatus, connected, config, counts, traffic, providers, credentials, refresh } =
-    useDashboardOverview();
+  const {
+    connectionStatus,
+    connected,
+    config,
+    counts,
+    traffic,
+    providers,
+    credentials,
+    initialLoading,
+    refresh,
+  } = useDashboardOverview();
 
   useHeaderRefresh(refresh, connected);
 
@@ -114,10 +124,12 @@ export function DashboardPage() {
   const versionLabel = serverVersion ? `v${serverVersion.trim().replace(/^[vV]+/, '')}` : null;
   const heroMetaLine = [versionLabel, connectionLabel].filter(Boolean).join(' · ');
 
+  /* 首屏 fetch 尚未返回时，KPI 大数字用 shimmer 占位，替代冷冰冰的 "—" */
   const statTiles = [
     {
       key: 'success',
       label: t('dashboard.success_rate'),
+      pending: initialLoading && traffic.successRate === null,
       value: traffic.successRate === null ? DASH : formatPercent(traffic.successRate),
       hint: t('dashboard.stat_success_hint', { total: traffic.total.toLocaleString() }),
       meter: traffic.successRate,
@@ -126,6 +138,7 @@ export function DashboardPage() {
     {
       key: 'credentials',
       label: t('dashboard.stat_credentials'),
+      pending: initialLoading && !credentials,
       value: credentials ? credentials.total.toLocaleString() : DASH,
       hint: credentials
         ? t('dashboard.stat_credentials_hint', {
@@ -142,6 +155,7 @@ export function DashboardPage() {
     {
       key: 'providerKeys',
       label: t('dashboard.stat_provider_keys'),
+      pending: initialLoading && counts.providerKeys === null,
       value: counts.providerKeys === null ? DASH : counts.providerKeys.toLocaleString(),
       hint: t('dashboard.stat_provider_keys_hint'),
       meter: null,
@@ -150,6 +164,7 @@ export function DashboardPage() {
     {
       key: 'models',
       label: t('dashboard.stat_models'),
+      pending: initialLoading && counts.models === null,
       value: counts.models === null ? DASH : counts.models.toLocaleString(),
       hint: t('dashboard.stat_models_hint'),
       meter: null,
@@ -324,7 +339,11 @@ export function DashboardPage() {
             }
           >
             <span className={styles.statLabel}>{tile.label}</span>
-            <strong className={styles.statValue}>{tile.value}</strong>
+            {tile.pending ? (
+              <Skeleton className={styles.statValueSkeleton} rounded={6} aria-hidden="true" />
+            ) : (
+              <strong className={styles.statValue}>{tile.value}</strong>
+            )}
             {tile.meter !== null && tile.meter !== undefined && (
               <Meter
                 value={tile.meter}

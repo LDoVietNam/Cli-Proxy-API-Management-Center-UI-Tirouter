@@ -1,0 +1,170 @@
+.page {
+  padding: var(--spacing-xl);
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.pageHeader {
+  margin-bottom: var(--spacing-2xl);
+}
+
+.pageTitle {
+  font-size: 1.75rem;
+  font-weight: 600;
+  margin: 0 0 var(--spacing-sm);
+  color: var(--text-primary);
+}
+
+.pageDescription {
+  font-size: 1rem;
+  color: var(--text-secondary);
+  margin: 0;
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  gap: var(--spacing-lg);
+}
+
+.serviceCard {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-md);
+}
+
+.serviceHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+}
+
+.serviceIdentity {
+  flex: 1;
+}
+
+.serviceName {
+  font-size: 1.125rem;
+  font-weight: 500;
+  color: var(--text-primary);
+  margin: 0 0 var(--spacing-xs);
+}
+
+.serviceDescription {
+  font-size: 0.875rem;
+  color: var(--text-secondary);
+  margin: 0;
+}
+
+.servicePort {
+  font-size: 0.875rem;
+  color: var(--text-tertiary);
+  background: var(--bg-secondary);
+  padding: var(--spacing-xxs) var(--spacing-sm);
+  border-radius: var(--radius-sm);
+  font-family: monospace;
+}
+
+.serviceStatus {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  font-size: 0.875rem;
+  color: var(--text-secondary);
+}
+
+.statusIndicator {
+  display: flex;
+  align-items: center;
+}
+
+.statusRunning {
+  color: var(--success-color);
+}
+
+.statusStopped {
+  color: var(--warning-color);
+}
+
+.serviceActions {
+  display: flex;
+  gap: var(--spacing-sm);
+  margin-top: auto;
+}
+
+.restartModal {
+  padding: var(--spacing-md) 0;
+}
+
+.modalActions {
+  display: flex;
+  gap: var(--spacing-sm);
+  justify-content: flex-end;
+  margin-top: var(--spacing-md);
+}
+// Health detail (healthy / unhealthy / unknown) — previously dead
+// Tailwind classes that never rendered.
+.healthHealthy {
+  color: var(--success-color);
+}
+
+.healthUnhealthy {
+  color: var(--danger-color);
+}
+
+.healthUnknown {
+  color: var(--warning-color);
+}
+
+.infoSection {
+  padding: var(--spacing-md) 0;
+}
+
+.sectionTitle {
+  font-size: 1.2rem;
+  margin: 0 0 var(--spacing-md);
+}
+
+.featureBadges {
+  display: flex;
+  gap: var(--spacing-md);
+  flex-wrap: wrap;
+  margin-bottom: var(--spacing-md);
+}
+
+.featureBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.25rem 0.6rem;
+  border-radius: var(--radius-full);
+  font-size: 0.85rem;
+  background: color-mix(in srgb, var(--warning-color) 12%, transparent);
+  color: var(--warning-color);
+}
+
+.featureEnabled {
+  background: color-mix(in srgb, var(--success-color) 12%, transparent);
+  color: var(--success-color);
+}
+
+.providerSummary {
+  font-size: 0.9rem;
+  color: var(--text-secondary);
+}
+
+.quickActions {
+  display: flex;
+  gap: var(--spacing-sm);
+  flex-wrap: wrap;
+}
+
+.cliOutput {
+  white-space: pre-wrap;
+  padding: 1rem;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  color: var(--text-primary);
+  margin: 0;
+}

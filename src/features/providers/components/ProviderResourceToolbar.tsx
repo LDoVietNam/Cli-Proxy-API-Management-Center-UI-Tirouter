@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState, useEffect } from 'react';
+import { useEffect, useId, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { IconChevronDown, IconChevronUp, IconSlidersHorizontal } from '@/components/ui/icons';
 import { Select } from '@/components/ui/Select';
@@ -28,6 +28,7 @@ export function ProviderResourceToolbar({
   const { t } = useTranslation();
   const [filterOpen, setFilterOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
+  const filterPanelId = useId();
 
   const sortOptions = useMemo(
     () => [
@@ -48,8 +49,20 @@ export function ProviderResourceToolbar({
         setFilterOpen(false);
       }
     };
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setFilterOpen(false);
+        // Return focus to the filter trigger button
+        const trigger = containerRef.current?.querySelector<HTMLButtonElement>('[aria-haspopup="true"]');
+        trigger?.focus();
+      }
+    };
     document.addEventListener('pointerdown', onClickOutside);
-    return () => document.removeEventListener('pointerdown', onClickOutside);
+    document.addEventListener('keydown', onKeyDown);
+    return () => {
+      document.removeEventListener('pointerdown', onClickOutside);
+      document.removeEventListener('keydown', onKeyDown);
+    };
   }, [filterOpen]);
 
   const toggleModel = (name: string) => {
@@ -106,13 +119,16 @@ export function ProviderResourceToolbar({
           className={styles.filterTrigger}
           onClick={() => setFilterOpen((v) => !v)}
           disabled={availableModels.length === 0}
+          aria-expanded={filterOpen}
+          aria-haspopup="true"
+          aria-controls={filterOpen ? filterPanelId : undefined}
         >
           <IconSlidersHorizontal size={14} />
           <span>{filterLabel}</span>
           <IconChevronDown size={12} />
         </button>
         {filterOpen ? (
-          <div className={styles.filterPanel}>
+          <div className={styles.filterPanel} id={filterPanelId}>
             <div className={styles.filterToolbar}>
               <button
                 type="button"

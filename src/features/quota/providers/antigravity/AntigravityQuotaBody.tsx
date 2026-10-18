@@ -7,7 +7,6 @@ import { useTranslation } from 'react-i18next';
 import type { TFunction } from 'i18next';
 import type { AntigravityQuotaState, AntigravityQuotaSubscription } from '@/types';
 import { QuotaMeter } from '../../components/QuotaMeter';
-import { collectQuotaRowInstants, pickUrgentRowId } from '../../resetSchedule';
 import type { QuotaBodyProps } from '../../types';
 import { getNextAntigravityCountdownUpdateDelay } from './countdown';
 
@@ -145,13 +144,6 @@ export function AntigravityQuotaBody({ quota, classes }: QuotaBodyProps<Antigrav
     };
   }, [resetTimestamps, serverTimeOffsetMs]);
 
-  // Ranked against this provider's own server-corrected clock rather than the
-  // shared one, so the final-hour warning and the countdown always agree.
-  const soonestRowId = useMemo(
-    () => pickUrgentRowId(collectQuotaRowInstants('antigravity', quota), nowMs),
-    [quota, nowMs]
-  );
-
   return (
     <>
       {planLabel && (
@@ -205,8 +197,6 @@ export function AntigravityQuotaBody({ quota, classes }: QuotaBodyProps<Antigrav
                   t
                 );
 
-                const soon = bucket.id === soonestRowId;
-
                 return (
                   <div key={bucket.id} className={classes.quotaRow}>
                     <div className={classes.quotaRowHeader}>
@@ -215,16 +205,7 @@ export function AntigravityQuotaBody({ quota, classes }: QuotaBodyProps<Antigrav
                       </span>
                       <div className={classes.quotaMeta}>
                         <span className={classes.quotaPercent}>{percentLabel}</span>
-                        <span
-                          className={
-                            soon
-                              ? `${classes.quotaReset} ${classes.quotaResetRelativeSoon}`
-                              : classes.quotaReset
-                          }
-                          title={soon ? t('quota_management.soonest_row_hint') : undefined}
-                        >
-                          {resetLabel}
-                        </span>
+                        <span className={classes.quotaReset}>{resetLabel}</span>
                       </div>
                     </div>
                     <QuotaMeter percent={percent} classes={classes} index={index} />

@@ -2,9 +2,12 @@ import { useTranslation } from 'react-i18next';
 import { Modal } from '@/components/ui/Modal';
 import { Button } from '@/components/ui/Button';
 import { EmptyState } from '@/components/ui/EmptyState';
+import { Skeleton } from '@/components/ui/Skeleton';
 import type { AuthFileModelItem } from '@/features/authFiles/constants';
 import { isModelExcluded } from '@/features/authFiles/constants';
 import styles from './AuthFileModelsModal.module.scss';
+
+const MODEL_SKELETON_ROWS = 5;
 
 export type AuthFileModelsModalProps = {
   open: boolean;
@@ -34,8 +37,10 @@ export function AuthFileModelsModal(props: AuthFileModelsModalProps) {
       }
     >
       {loading ? (
-        <div className="hint">
-          {t('auth_files.models_loading', { defaultValue: '正在加载模型列表...' })}
+        <div className={styles.skeletonList} aria-hidden="true">
+          {Array.from({ length: MODEL_SKELETON_ROWS }, (_, index) => (
+            <Skeleton key={index} height={34} rounded={8} />
+          ))}
         </div>
       ) : error === 'unsupported' ? (
         <EmptyState
@@ -55,20 +60,21 @@ export function AuthFileModelsModal(props: AuthFileModelsModalProps) {
         <div className={styles.list}>
           {models.map((model) => {
             const excludedModel = isModelExcluded(model.id, fileType, excluded);
+            const itemTitle = excludedModel
+              ? t('auth_files.models_excluded_hint', {
+                  defaultValue: '此 OAuth 模型已被禁用',
+                })
+              : t('common.copy', { defaultValue: '点击复制' });
             return (
-              <div
+              <button
                 key={model.id}
+                type="button"
                 className={`${styles.item} ${excludedModel ? styles.itemExcluded : ''}`}
                 onClick={() => {
                   onCopyText(model.id);
                 }}
-                title={
-                  excludedModel
-                    ? t('auth_files.models_excluded_hint', {
-                        defaultValue: '此 OAuth 模型已被禁用',
-                      })
-                    : t('common.copy', { defaultValue: '点击复制' })
-                }
+                title={itemTitle}
+                aria-label={`${itemTitle}: ${model.id}`}
               >
                 <span className={styles.modelId}>{model.id}</span>
                 {model.display_name && model.display_name !== model.id && (
@@ -80,7 +86,7 @@ export function AuthFileModelsModal(props: AuthFileModelsModalProps) {
                     {t('auth_files.models_excluded_badge', { defaultValue: '已禁用' })}
                   </span>
                 )}
-              </div>
+              </button>
             );
           })}
         </div>

@@ -9,6 +9,15 @@ import {
   resolveApiKeyFunBaseUrl,
 } from './sponsor';
 import {
+  CODE0_AFFILIATE_URL,
+  CODE0_BASE_URL_OPTIONS,
+  CODE0_DISPLAY_NAME,
+  CODE0_PROTOCOL_LABELS,
+  CODE0_PROVIDER_NAME,
+  getCode0ProtocolUrls,
+  resolveCode0BaseUrl,
+} from './code0';
+import {
   FENNO_AI_AFFILIATE_URL,
   FENNO_AI_BASE_URL_OPTIONS,
   FENNO_AI_DISPLAY_NAME,
@@ -27,6 +36,15 @@ import {
   resolveQiniuCloudBaseUrl,
 } from './qiniuCloud';
 import {
+  LMU_AI_AFFILIATE_URL,
+  LMU_AI_BASE_URL_OPTIONS,
+  LMU_AI_DISPLAY_NAME,
+  LMU_AI_PROTOCOL_LABELS,
+  LMU_AI_PROVIDER_NAME,
+  getLmuAIProtocolUrls,
+  resolveLmuAIBaseUrl,
+} from './lmuAI';
+import {
   KIMI_BASE_URL_OPTIONS,
   KIMI_DISPLAY_NAME,
   KIMI_PROTOCOL_LABELS,
@@ -34,6 +52,40 @@ import {
   getKimiProtocolUrls,
   resolveKimiBaseUrl,
 } from './kimi';
+import {
+  OPENROUTER_PROVIDER_NAME,
+  OPENROUTER_DISPLAY_NAME,
+  OPENROUTER_AFFILIATE_URL,
+  OPENROUTER_BASE_URL_OPTIONS,
+  getOpenRouterProtocolUrls,
+  resolveOpenRouterBaseUrl,
+} from './openrouter';
+import {
+  GROQ_PROVIDER_NAME,
+  GROQ_DISPLAY_NAME,
+  GROQ_AFFILIATE_URL,
+  GROQ_BASE_URL_OPTIONS,
+  getGroqProtocolUrls,
+  resolveGroqBaseUrl,
+} from './groq';
+import {
+  ANTHROPIC_PROVIDER_NAME,
+  ANTHROPIC_DISPLAY_NAME,
+  ANTHROPIC_AFFILIATE_URL,
+  ANTHROPIC_BASE_URL_OPTIONS,
+  ANTHROPIC_PROTOCOL_LABELS,
+  getAnthropicProtocolUrls,
+  resolveAnthropicBaseUrl,
+} from './anthropic';
+import {
+  GEMINI_PROVIDER_NAME,
+  GEMINI_DISPLAY_NAME,
+  GEMINI_AFFILIATE_URL,
+  GEMINI_BASE_URL_OPTIONS,
+  GEMINI_PROTOCOL_LABELS,
+  getGeminiProtocolUrls,
+  resolveGeminiBaseUrl,
+} from './gemini';
 import type {
   ProviderBrand,
   SponsorProtocol,
@@ -88,6 +140,32 @@ const SPONSOR_DEFINITIONS: Record<SponsorProviderBrand, SponsorProviderDefinitio
     resolveBaseUrl: resolveApiKeyFunBaseUrl,
     getProtocolUrls: getApiKeyFunProtocolUrls,
   },
+  gemini: {
+    brand: 'gemini',
+    displayName: GEMINI_DISPLAY_NAME,
+    providerName: GEMINI_PROVIDER_NAME,
+    affiliateUrl: GEMINI_AFFILIATE_URL,
+    protocols: ['gemini', 'openai'],
+    protocolLabels: GEMINI_PROTOCOL_LABELS,
+    defaultProtocol: 'gemini',
+    baseUrlOptions: GEMINI_BASE_URL_OPTIONS,
+    supportsUsageCheck: false,
+    resolveBaseUrl: resolveGeminiBaseUrl,
+    getProtocolUrls: getGeminiProtocolUrls,
+  },
+  code0: {
+    brand: 'code0',
+    displayName: CODE0_DISPLAY_NAME,
+    providerName: CODE0_PROVIDER_NAME,
+    affiliateUrl: CODE0_AFFILIATE_URL,
+    protocols: ['openai', 'claude', 'gemini', 'codex'],
+    protocolLabels: CODE0_PROTOCOL_LABELS,
+    defaultProtocol: 'openai',
+    baseUrlOptions: CODE0_BASE_URL_OPTIONS,
+    supportsUsageCheck: false,
+    resolveBaseUrl: resolveCode0BaseUrl,
+    getProtocolUrls: getCode0ProtocolUrls,
+  },
   fennoAI: {
     brand: 'fennoAI',
     displayName: FENNO_AI_DISPLAY_NAME,
@@ -114,11 +192,24 @@ const SPONSOR_DEFINITIONS: Record<SponsorProviderBrand, SponsorProviderDefinitio
     resolveBaseUrl: resolveQiniuCloudBaseUrl,
     getProtocolUrls: getQiniuCloudProtocolUrls,
   },
+  lmuAI: {
+    brand: 'lmuAI',
+    displayName: LMU_AI_DISPLAY_NAME,
+    providerName: LMU_AI_PROVIDER_NAME,
+    affiliateUrl: LMU_AI_AFFILIATE_URL,
+    protocols: ['openai', 'claude', 'gemini', 'codex'],
+    protocolLabels: LMU_AI_PROTOCOL_LABELS,
+    defaultProtocol: 'openai',
+    baseUrlOptions: LMU_AI_BASE_URL_OPTIONS,
+    supportsUsageCheck: false,
+    resolveBaseUrl: resolveLmuAIBaseUrl,
+    getProtocolUrls: getLmuAIProtocolUrls,
+  },
   kimi: {
     brand: 'kimi',
     displayName: KIMI_DISPLAY_NAME,
     providerName: KIMI_PROVIDER_NAME,
-    protocols: ['openai', 'claude', 'codex'],
+    protocols: ['openai', 'claude'],
     protocolLabels: KIMI_PROTOCOL_LABELS,
     defaultProtocol: 'openai',
     baseUrlOptions: KIMI_BASE_URL_OPTIONS,
@@ -126,13 +217,57 @@ const SPONSOR_DEFINITIONS: Record<SponsorProviderBrand, SponsorProviderDefinitio
     resolveBaseUrl: resolveKimiBaseUrl,
     getProtocolUrls: getKimiProtocolUrls,
   },
+  openrouter: {
+    brand: 'openrouter',
+    displayName: OPENROUTER_DISPLAY_NAME,
+    providerName: OPENROUTER_PROVIDER_NAME,
+    affiliateUrl: OPENROUTER_AFFILIATE_URL,
+    protocols: ['openai'],
+    protocolLabels: ['openai'],
+    defaultProtocol: 'openai',
+    baseUrlOptions: OPENROUTER_BASE_URL_OPTIONS,
+    supportsUsageCheck: false,
+    resolveBaseUrl: resolveOpenRouterBaseUrl,
+    getProtocolUrls: getOpenRouterProtocolUrls,
+  },
+  groq: {
+    brand: 'groq',
+    displayName: GROQ_DISPLAY_NAME,
+    providerName: GROQ_PROVIDER_NAME,
+    affiliateUrl: GROQ_AFFILIATE_URL,
+    protocols: ['openai'],
+    protocolLabels: ['openai'],
+    defaultProtocol: 'openai',
+    baseUrlOptions: GROQ_BASE_URL_OPTIONS,
+    supportsUsageCheck: false,
+    resolveBaseUrl: resolveGroqBaseUrl,
+    getProtocolUrls: getGroqProtocolUrls,
+  },
+  anthropic: {
+    brand: 'anthropic',
+    displayName: ANTHROPIC_DISPLAY_NAME,
+    providerName: ANTHROPIC_PROVIDER_NAME,
+    affiliateUrl: ANTHROPIC_AFFILIATE_URL,
+    protocols: ['anthropic'],
+    protocolLabels: ANTHROPIC_PROTOCOL_LABELS,
+    defaultProtocol: 'anthropic',
+    baseUrlOptions: ANTHROPIC_BASE_URL_OPTIONS,
+    supportsUsageCheck: false,
+    resolveBaseUrl: resolveAnthropicBaseUrl,
+    getProtocolUrls: getAnthropicProtocolUrls,
+  },
 };
 
 export const isMultiProtocolSponsorBrand = (brand: ProviderBrand): brand is SponsorProviderBrand =>
   brand === 'apikeyFun' ||
+  brand === 'code0' ||
   brand === 'fennoAI' ||
   brand === 'qiniuCloud' ||
-  brand === 'kimi';
+  brand === 'lmuAI' ||
+  brand === 'kimi' ||
+  brand === 'openrouter' ||
+  brand === 'groq' ||
+  brand === 'anthropic';
 
 export type SponsorAggregationConflict = 'multiple-configs' | 'multiple-openai-keys';
 

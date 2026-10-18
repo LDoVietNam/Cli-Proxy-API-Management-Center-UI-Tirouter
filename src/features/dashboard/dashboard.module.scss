@@ -437,6 +437,13 @@
   font-variant-numeric: tabular-nums;
 }
 
+/* 首屏 shimmer：与 .statValue 同占位尺寸，避免 fetch 完成后布局跳动 */
+.statValueSkeleton {
+  width: 96px;
+  height: 31px;
+  margin: 1px 0;
+}
+
 .statMeter {
   margin: 4px 0 2px;
 }

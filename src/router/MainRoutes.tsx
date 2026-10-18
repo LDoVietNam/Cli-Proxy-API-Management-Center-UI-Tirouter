@@ -9,9 +9,17 @@ import { QuotaPage } from '@/features/quota/QuotaPage';
 import { PluginResourcePage } from '@/features/plugins/PluginResourcePage';
 import { PluginsPage } from '@/features/plugins/PluginsPage';
 import { PluginStorePage } from '@/features/plugins/PluginStorePage';
-import { ConfigPage } from '@/features/config/ConfigPage';
+import { ConfigPage } from '@/pages/ConfigPage';
 import { LogsPage } from '@/pages/LogsPage';
 import { SystemPage } from '@/pages/SystemPage';
+
+
+import { RTKConfigPage } from '@/features/rtk/RTKConfigPage';
+import { PromptsConfigPage } from '@/features/prompts/PromptsConfigPage';
+
+import { ModelsPage } from '@/features/models/ModelsPage';
+
+
 import { useAuthStore } from '@/stores';
 
 const createMainRoutes = (supportsPlugin: boolean) => [
@@ -19,8 +27,8 @@ const createMainRoutes = (supportsPlugin: boolean) => [
   { path: '/dashboard', element: <DashboardPage /> },
   { path: '/settings', element: <Navigate to="/config" replace /> },
   { path: '/api-keys', element: <Navigate to="/config" replace /> },
-  { path: '/quick-start', element: <ProvidersWorkbenchPage fixedBrand="apikeyFun" /> },
-  { path: '/quick-start/*', element: <Navigate to="/quick-start" replace /> },
+  { path: '/quick-start', element: <Navigate to="/ai-providers" replace /> },
+  { path: '/quick-start/*', element: <Navigate to="/ai-providers" replace /> },
   { path: '/ai-providers', element: <ProvidersWorkbenchPage /> },
   { path: '/ai-providers/*', element: <Navigate to="/ai-providers" replace /> },
   { path: '/auth-files', element: <AuthFilesPage /> },
@@ -28,6 +36,15 @@ const createMainRoutes = (supportsPlugin: boolean) => [
   { path: '/auth-files/oauth-model-alias', element: <AuthFilesOAuthModelAliasEditPage /> },
   { path: '/oauth', element: <OAuthPage /> },
   { path: '/quota', element: <QuotaPage /> },
+  // TASK B: /quota-monitoring hợp nhất thành tab trong /quota — redirect deep-link
+  { path: '/quota-monitoring', element: <Navigate to="/quota?tab=monitoring" replace /> },
+  { path: '/cli-providers', element: <Navigate to="/" replace /> }, // PRUNED 2026-10-14: backend endpoints missing
+  { path: '/models', element: <ModelsPage /> },
+  { path: '/taskboard', element: <Navigate to="/" replace /> }, // PRUNED 2026-10-14: backend endpoints missing
+  { path: '/compression', element: <Navigate to="/" replace /> }, // PRUNED 2026-10-14: backend endpoints missing
+  { path: '/rtk', element: <RTKConfigPage /> },
+  { path: '/prompts', element: <PromptsConfigPage /> },
+  { path: '/routing-test', element: <Navigate to="/" replace /> }, // PRUNED 2026-10-14: backend endpoints missing
   ...(supportsPlugin
     ? [
         { path: '/plugin-pages/:pluginId/:menuIndex', element: <PluginResourcePage /> },
@@ -43,6 +60,7 @@ const createMainRoutes = (supportsPlugin: boolean) => [
   { path: '/config', element: <ConfigPage /> },
   { path: '/logs', element: <LogsPage /> },
   { path: '/system', element: <SystemPage /> },
+  { path: '/services', element: <Navigate to="/" replace /> }, // PRUNED 2026-10-14: backend endpoints missing
   { path: '*', element: <Navigate to="/" replace /> },
 ];
 

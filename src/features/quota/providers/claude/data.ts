@@ -128,8 +128,14 @@ const parseClaudeProfilePayload = (payload: unknown): ClaudeProfileResponse | nu
   return null;
 };
 
-export const resolveClaudePlanType = (profile: ClaudeProfileResponse | null): string | null => {
+const resolveClaudePlanType = (profile: ClaudeProfileResponse | null): string | null => {
   if (!profile) return null;
+
+  const hasClaudeMax = normalizeFlagValue(profile.account?.has_claude_max);
+  if (hasClaudeMax) return 'plan_max';
+
+  const hasClaudePro = normalizeFlagValue(profile.account?.has_claude_pro);
+  if (hasClaudePro) return 'plan_pro';
 
   const organizationType = normalizeStringValue(
     profile.organization?.organization_type
@@ -141,13 +147,6 @@ export const resolveClaudePlanType = (profile: ClaudeProfileResponse | null): st
   if (organizationType === 'claude_team' && subscriptionStatus === 'active') {
     return 'plan_team';
   }
-
-  // Account flags include personal subscriptions even for a Team-scoped token.
-  const hasClaudeMax = normalizeFlagValue(profile.account?.has_claude_max);
-  if (hasClaudeMax) return 'plan_max';
-
-  const hasClaudePro = normalizeFlagValue(profile.account?.has_claude_pro);
-  if (hasClaudePro) return 'plan_pro';
 
   if (hasClaudeMax === false && hasClaudePro === false) return 'plan_free';
 

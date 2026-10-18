@@ -1,0 +1,662 @@
+@use '../../styles/mixins' as *;
+
+.taskboardPage {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  padding: $spacing-md $spacing-lg;
+  gap: 12px;
+}
+
+.pageHeader {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+
+  h1 {
+    margin: 0 0 $spacing-xs;
+    font-size: 1.4rem;
+  }
+}
+
+.pageSubtitle {
+  margin: 0;
+  opacity: 0.65;
+  font-size: 0.9rem;
+}
+
+.pageActions {
+  display: flex;
+  align-items: center;
+  gap: $spacing-sm;
+  flex-wrap: wrap;
+}
+
+.taskCount {
+  font-size: 0.85rem;
+  opacity: 0.7;
+  margin-right: 4px;
+}
+
+.taskboardError {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: $spacing-sm $spacing-md;
+  border-radius: $radius-md;
+  background: var(--failure-badge-bg);
+  border: 1px solid var(--failure-badge-border);
+  color: var(--error-color);
+  font-size: 0.9rem;
+
+  button {
+    background: none;
+    border: none;
+    color: inherit;
+    font-size: 1.1rem;
+    cursor: pointer;
+    padding: 0 4px;
+
+    &:focus-visible {
+      outline: 2px solid $primary-color;
+      outline-offset: 2px;
+    }
+  }
+}
+
+/* Skeleton board khi fetch đầu tiên */
+.boardSkeleton {
+  flex: 1;
+  display: grid;
+  grid-template-columns: repeat(6, minmax(220px, 1fr));
+  gap: 12px;
+  align-items: start;
+}
+
+.boardSkeletonColumn {
+  display: flex;
+  flex-direction: column;
+  gap: $spacing-sm;
+  padding: 10px;
+  border: 1px solid var(--border-color);
+  border-radius: 10px;
+}
+
+.boardScroll {
+  flex: 1;
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding-bottom: $spacing-sm;
+}
+
+.boardColumns {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(240px, 1fr));
+  gap: 12px;
+  height: 100%;
+  min-width: 1480px;
+}
+
+.boardColumn {
+  display: flex;
+  flex-direction: column;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: 10px;
+  overflow: hidden;
+  min-height: 200px;
+
+  &.columnDone .columnDot {
+    background: var(--viz-success);
+  }
+
+  &.columnBlocked .columnDot {
+    background: var(--viz-failure);
+  }
+
+  &.columnInProgress .columnDot {
+    background: var(--primary-active);
+  }
+
+  &.columnReview .columnDot {
+    background: var(--text-secondary);
+  }
+
+  &.columnTodo .columnDot {
+    background: var(--amber-color);
+  }
+
+  &.columnBacklog .columnDot {
+    background: var(--text-tertiary);
+  }
+}
+
+.boardColumnHeader {
+  display: flex;
+  align-items: center;
+  gap: $spacing-sm;
+  padding: 10px 12px;
+  font-weight: 600;
+  font-size: 0.9rem;
+  border-bottom: 1px solid var(--border-color);
+
+  .columnTitle {
+    flex: 1;
+  }
+
+  .columnCount {
+    background: var(--count-badge-bg);
+    color: var(--count-badge-text);
+    border-radius: $radius-full;
+    padding: 1px 8px;
+    font-size: 0.8rem;
+  }
+}
+
+.columnDot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+}
+
+.boardColumnBody {
+  flex: 1;
+  padding: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: $spacing-sm;
+  overflow-y: auto;
+}
+
+.columnEmpty {
+  padding: 18px 8px;
+  text-align: center;
+  font-size: 0.82rem;
+  opacity: 0.45;
+  border: 1px dashed var(--border-color);
+  border-radius: $radius-md;
+}
+
+.taskCard {
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-color);
+  border-left-width: 3px;
+  border-radius: $radius-md;
+  padding: 10px 12px;
+  cursor: grab;
+  transition: border-color $transition-fast ease, transform 0.1s ease;
+
+  &:hover {
+    border-color: var(--border-hover);
+    transform: translateY(-1px);
+  }
+
+  &:active {
+    cursor: grabbing;
+  }
+
+  &:focus-visible {
+    outline: 2px solid $primary-color;
+    outline-offset: 2px;
+  }
+
+  &.cardPriorityHigh {
+    border-left-color: var(--viz-failure);
+  }
+
+  &.cardPriorityMedium {
+    border-left-color: var(--amber-color);
+  }
+
+  &.cardPriorityLow {
+    border-left-color: var(--viz-success);
+  }
+}
+
+.taskCardTitle {
+  font-size: 0.9rem;
+  font-weight: 600;
+  line-height: 1.3;
+  word-break: break-word;
+}
+
+.taskCardDesc {
+  margin-top: 4px;
+  font-size: 0.8rem;
+  opacity: 0.6;
+  word-break: break-word;
+}
+
+.taskCardMeta {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: $spacing-sm;
+}
+
+.priorityBadge {
+  font-size: 0.7rem;
+  padding: 1px 7px;
+  border-radius: $radius-full;
+  font-weight: 600;
+
+  &.badgePriorityHigh {
+    background: var(--failure-badge-bg);
+    color: var(--failure-badge-text);
+    border: 1px solid var(--failure-badge-border);
+  }
+
+  &.badgePriorityMedium {
+    background: var(--amber-30);
+    color: var(--amber-text);
+    border: 1px solid var(--amber-30);
+  }
+
+  &.badgePriorityLow {
+    background: var(--success-badge-bg);
+    color: var(--success-badge-text);
+    border: 1px solid var(--success-badge-border);
+  }
+}
+
+.taskAssignee {
+  font-size: 0.75rem;
+  opacity: 0.7;
+}
+
+.taskTag {
+  font-size: 0.72rem;
+  padding: 1px 7px;
+  border-radius: $radius-full;
+  background: var(--primary-10);
+  color: var(--primary-active);
+}
+
+.taskProgress {
+  margin-top: $spacing-sm;
+  height: 4px;
+  border-radius: 2px;
+  background: var(--bg-tertiary);
+  overflow: hidden;
+}
+
+.taskProgressFill {
+  height: 100%;
+  border-radius: 2px;
+  background: linear-gradient(90deg, var(--primary-active), var(--viz-success));
+  transition: width 0.3s ease;
+
+  @media (prefers-reduced-motion: reduce) {
+    transition: none;
+  }
+}
+
+/* Task card footer (timer + keyboard move + time spent) */
+.taskCardFooter {
+  display: flex;
+  align-items: center;
+  gap: $spacing-sm;
+  margin-top: 6px;
+}
+
+.taskTime {
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+/* Keyboard alternative cho drag-drop: 2 nút ‹ › di chuyển giữa cột liền kề */
+.moveControls {
+  display: inline-flex;
+  gap: 4px;
+}
+
+.moveBtn {
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  background: var(--bg-tertiary);
+  color: var(--text-secondary);
+  cursor: pointer;
+  padding: 1px 8px;
+  font-size: 13px;
+  line-height: 1.4;
+  transition: color $transition-fast, border-color $transition-fast;
+
+  &:hover:not(:disabled) {
+    color: var(--text-primary);
+    border-color: var(--border-hover);
+  }
+
+  &:focus-visible {
+    outline: 2px solid $primary-color;
+    outline-offset: 2px;
+  }
+
+  &:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+  }
+}
+
+.taskTimerBtn {
+  margin-left: auto;
+  border: 1px solid color-mix(in srgb, currentColor 30%, transparent);
+  border-radius: 6px;
+  background: transparent;
+  cursor: pointer;
+  padding: 1px 8px;
+  font-size: 12px;
+
+  &:focus-visible {
+    outline: 2px solid $primary-color;
+    outline-offset: 2px;
+  }
+}
+
+/* Task modal (create/edit) */
+.taskModal {
+  width: 100%;
+  max-width: 480px;
+  max-height: 90vh;
+  overflow-y: auto;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: $radius-lg;
+  padding: $spacing-lg;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+
+  h3 {
+    margin: 0;
+  }
+}
+
+.confirmModal {
+  width: 100%;
+  max-width: 380px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: $radius-lg;
+  padding: $spacing-lg;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+
+  h3 {
+    margin: 0;
+  }
+
+  p {
+    margin: 0;
+    opacity: 0.8;
+  }
+}
+
+.modalError {
+  padding: $spacing-sm 10px;
+  border-radius: $radius-md;
+  background: var(--failure-badge-bg);
+  border: 1px solid var(--failure-badge-border);
+  color: var(--error-color);
+  font-size: 0.85rem;
+}
+
+.formLabel {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  font-size: 0.85rem;
+  font-weight: 500;
+  flex: 1;
+}
+
+.formInput,
+.formTextarea {
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-color);
+  border-radius: $radius-md;
+  padding: $spacing-sm 10px;
+  color: inherit;
+  font-size: 0.9rem;
+  font-family: inherit;
+  resize: vertical;
+
+  &:focus {
+    outline: none;
+    border-color: var(--primary-active);
+  }
+}
+
+.formTextarea {
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-color);
+}
+
+.formRow {
+  display: flex;
+  gap: 12px;
+
+  @include mobile {
+    flex-direction: column;
+  }
+}
+
+.modalActions {
+  display: flex;
+  align-items: center;
+  gap: $spacing-sm;
+  margin-top: 4px;
+
+  .modalActionsSpacer {
+    flex: 1;
+  }
+}
+
+/* Realtime live indicator */
+.liveIndicator {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  padding: 4px 10px;
+  border-radius: $radius-full;
+  border: 1px solid transparent;
+  transition: color 0.2s ease, border-color 0.2s ease;
+}
+
+.liveDot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+.liveOn {
+  color: var(--viz-success);
+  border-color: color-mix(in srgb, var(--viz-success) 40%, transparent);
+}
+
+.liveOff {
+  color: var(--amber-color);
+  border-color: color-mix(in srgb, var(--amber-color) 40%, transparent);
+
+  .liveDot {
+    animation: live-pulse 1.2s ease-in-out infinite;
+
+    @media (prefers-reduced-motion: reduce) {
+      animation: none;
+    }
+  }
+}
+
+@keyframes live-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.35;
+  }
+}
+
+/* Blocked task reason */
+.taskBlockedReason {
+  font-size: 11px;
+  color: var(--viz-failure);
+  background: color-mix(in srgb, var(--viz-failure) 10%, transparent);
+  border-radius: 6px;
+  padding: 3px 6px;
+  margin-bottom: 6px;
+}
+
+/* Plan modal */
+.planModal {
+  width: min(560px, 92vw);
+  max-height: 80vh;
+  overflow-y: auto;
+}
+
+.modalHint {
+  color: var(--text-muted);
+  font-size: 13px;
+  margin: 4px 0 10px;
+}
+
+.planGoal {
+  font-size: 14px;
+  margin-bottom: 6px;
+}
+
+.planStatus {
+  display: inline-block;
+  font-size: 12px;
+  font-weight: 600;
+  padding: 2px 10px;
+  border-radius: $radius-full;
+  margin-bottom: 10px;
+}
+
+.planStatusPending,
+.planStatusCreated {
+  color: var(--amber-color);
+  background: var(--amber-10);
+}
+
+.planStatusInProgress {
+  color: var(--viz-success);
+  background: color-mix(in srgb, var(--viz-success) 15%, transparent);
+}
+
+.planStatusCancelled,
+.planStatusFailed {
+  color: var(--viz-failure);
+  background: color-mix(in srgb, var(--viz-failure) 15%, transparent);
+}
+
+.planTasks {
+  list-style: none;
+  margin: 0 0 12px;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.planTaskNode {
+  display: flex;
+  align-items: center;
+  gap: $spacing-sm;
+  padding: 6px 10px;
+  border: 1px solid color-mix(in srgb, currentColor 15%, transparent);
+  border-radius: $radius-md;
+  font-size: 13px;
+}
+
+.planTaskTitle {
+  @include text-ellipsis;
+}
+
+.planTaskType {
+  font-style: normal;
+  opacity: 0.6;
+  font-size: 11px;
+}
+
+.planTaskDeps {
+  margin-left: auto;
+  font-size: 11px;
+  opacity: 0.7;
+}
+
+/* Tibrain memory context modal */
+.memoryModal {
+  width: min(680px, 94vw);
+  max-height: 80vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.memoryContent {
+  flex: 1;
+  overflow: auto;
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-size: 12.5px;
+  line-height: 1.55;
+  background: color-mix(in srgb, var(--text-muted) 6%, transparent);
+  border: 1px solid color-mix(in srgb, var(--text-muted) 20%, transparent);
+  border-radius: $radius-md;
+  padding: 10px 12px;
+  margin: 0 0 12px;
+  max-height: 55vh;
+}
+
+/* Template picker */
+.templatePicker {
+  border: 1px dashed color-mix(in srgb, var(--text-muted) 40%, transparent);
+  border-radius: 10px;
+  padding: 10px 12px;
+  margin-bottom: 12px;
+}
+
+.templateVars {
+  display: flex;
+  flex-direction: column;
+  gap: $spacing-sm;
+  margin-top: $spacing-sm;
+}
+
+.templatePreview {
+  font-size: 12.5px;
+  color: var(--text-muted);
+  background: color-mix(in srgb, var(--text-muted) 6%, transparent);
+  border-radius: 6px;
+  padding: 6px 8px;
+}
+
+/* Undo/redo toolbar */
+.historyActions {
+  display: inline-flex;
+  gap: 6px;
+  margin-right: 4px;
+}
+
+/* Responsive: page actions xuống dòng + board skeleton co lại */
+@include mobile {
+  .taskboardPage {
+    padding: $spacing-md;
+  }
+
+  .pageActions {
+    width: 100%;
+    justify-content: flex-start;
+  }
+
+  .boardSkeleton {
+    grid-template-columns: repeat(2, minmax(140px, 1fr));
+  }
+}
