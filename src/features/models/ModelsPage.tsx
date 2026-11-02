@@ -16,7 +16,7 @@ type ContextTier = 'low' | 'medium' | 'high' | 'huge';
 export function ModelsPage() {
   const { t } = useTranslation();
   const navigate = useNavigate();
-  const { isAuthenticated } = useAuthStore((s) => ({ isAuthenticated: s.isAuthenticated }));
+  const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
 
   const getContextLengthTier = (len: number): ContextTier => {
     if (len >= 128000) return 'huge';
@@ -344,6 +344,8 @@ export function ModelsPage() {
       <div className={styles.controls}>
         <div className={styles['search-box']}>
           <input
+            id="models-search"
+            name="models-search"
             type="text"
             placeholder={t('auth_files.models_search_placeholder')}
             value={searchQuery}
