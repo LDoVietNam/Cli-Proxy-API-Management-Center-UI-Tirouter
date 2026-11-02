@@ -8,9 +8,9 @@ import { createDevinQuotaFetcher, DevinQuotaError } from './requests';
 
 const fetchSnapshot = createDevinQuotaFetcher({
   request: (payload) => apiCallApi.request(payload),
-  generation: () => {
+  generation: (name) => {
     const state = useQuotaStore.getState();
-    return { session: state.cacheGeneration, file: 0 };
+    return { session: state.cacheGeneration, file: state.fileGenerations[name] ?? 0 };
   },
 });
 
@@ -24,7 +24,10 @@ const withLabels = (quota: DevinQuotaData, t: TFunction): DevinQuotaData => ({
 
 const emptyData = (): DevinQuotaData => ({
   windows: [],
-  planType: null,
+  observedAtMs: null,
+  plan: null,
+  planStartMs: null,
+  planEndMs: null,
 });
 
 export const DEVIN_CONFIG: QuotaProviderData<DevinQuotaState, DevinQuotaData> = {

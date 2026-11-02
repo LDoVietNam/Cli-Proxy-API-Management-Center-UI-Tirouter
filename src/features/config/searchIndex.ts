@@ -713,6 +713,754 @@ export const CONFIG_FIELD_SEARCH_INDEX: ConfigFieldSearchEntry[] = [
     yamlKeys: ['caveman', 'threshold'],
     keywords: ['caveman', 'threshold', 'min-length'],
   },
+  // ── advancedConfigs ──────────────────────────────────────────────────────────
+  {
+    fieldId: 'credentialConcurrencyLifecycleConfigRevision',
+    sectionId: 'advancedConfigs',
+    labelKey: L('sections.advancedConfigs.lifecycle_config_revision_label'),
+  },
+  {
+    fieldId: 'credentialConcurrencyObservationBarrierRevision',
+    sectionId: 'advancedConfigs',
+    labelKey: L('sections.advancedConfigs.observation_barrier_revision_label'),
+  },
+  {
+    fieldId: 'credentialConcurrencyCPAHeartbeatTimeout',
+    sectionId: 'advancedConfigs',
+    labelKey: L('sections.advancedConfigs.cpa_heartbeat_timeout_label'),
+  },
+  {
+    fieldId: 'credentialConcurrencyCPACancelBound',
+    sectionId: 'advancedConfigs',
+    labelKey: L('sections.advancedConfigs.cpa_cancel_bound_label'),
+  },
+  {
+    fieldId: 'credentialConcurrencyReclaimGrace',
+    sectionId: 'advancedConfigs',
+    labelKey: L('sections.advancedConfigs.reclaim_grace_label'),
+  },
+  {
+    fieldId: 'credentialConcurrencyCleanupInterval',
+    sectionId: 'advancedConfigs',
+    labelKey: L('sections.advancedConfigs.cleanup_interval_label'),
+  },
+  {
+    fieldId: 'credentialConcurrencyReleaseFlushInterval',
+    sectionId: 'advancedConfigs',
+    labelKey: L('sections.advancedConfigs.release_flush_interval_label'),
+  },
+  {
+    fieldId: 'credentialConcurrencyReleaseMaxBackoff',
+    sectionId: 'advancedConfigs',
+    labelKey: L('sections.advancedConfigs.release_max_backoff_label'),
+  },
+  {
+    fieldId: 'credentialConcurrencyBusyRetryMin',
+    sectionId: 'advancedConfigs',
+    labelKey: L('sections.advancedConfigs.busy_retry_min_label'),
+  },
+  {
+    fieldId: 'credentialConcurrencyBusyRetryMax',
+    sectionId: 'advancedConfigs',
+    labelKey: L('sections.advancedConfigs.busy_retry_max_label'),
+  },
+  {
+    fieldId: 'credentialConcurrencyMaxLimit',
+    sectionId: 'advancedConfigs',
+    labelKey: L('sections.advancedConfigs.max_limit_label'),
+  },
+  {
+    fieldId: 'credentialInFlightSnapshotInterval',
+    sectionId: 'advancedConfigs',
+    labelKey: L('sections.advancedConfigs.snapshot_interval_label'),
+  },
+  {
+    fieldId: 'credentialInFlightStaleAfter',
+    sectionId: 'advancedConfigs',
+    labelKey: L('sections.advancedConfigs.stale_after_label'),
+  },
+  {
+    fieldId: 'credentialInFlightMaxPartBytes',
+    sectionId: 'advancedConfigs',
+    labelKey: L('sections.advancedConfigs.max_part_bytes_label'),
+  },
+  {
+    fieldId: 'credentialInFlightMaxPartCount',
+    sectionId: 'advancedConfigs',
+    labelKey: L('sections.advancedConfigs.max_part_count_label'),
+  },
+  {
+    fieldId: 'credentialInFlightMaxRevisionBytes',
+    sectionId: 'advancedConfigs',
+    labelKey: L('sections.advancedConfigs.max_revision_bytes_label'),
+  },
+  {
+    fieldId: 'credentialInFlightMaxAggregateGroups',
+    sectionId: 'advancedConfigs',
+    labelKey: L('sections.advancedConfigs.max_aggregate_groups_label'),
+  },
+  {
+    fieldId: 'credentialInFlightMaxDetails',
+    sectionId: 'advancedConfigs',
+    labelKey: L('sections.advancedConfigs.max_details_label'),
+  },
+  {
+    fieldId: 'credentialInFlightMaxStringBytes',
+    sectionId: 'advancedConfigs',
+    labelKey: L('sections.advancedConfigs.max_string_bytes_label'),
+  },
+  {
+    fieldId: 'credentialInFlightStagingRetention',
+    sectionId: 'advancedConfigs',
+    labelKey: L('sections.advancedConfigs.staging_retention_label'),
+  },
+  {
+    fieldId: 'aiAgentEnabled',
+    sectionId: 'advancedConfigs',
+    labelKey: L('sections.advancedConfigs.ai_agent_enabled_label'),
+  },
+  {
+    fieldId: 'aiAgentMode',
+    sectionId: 'advancedConfigs',
+    labelKey: L('sections.advancedConfigs.mode_label'),
+  },
+  {
+    fieldId: 'aiAgentRoutingBackend',
+    sectionId: 'advancedConfigs',
+    labelKey: L('sections.advancedConfigs.routing_backend_label'),
+  },
+  {
+    fieldId: 'aiAgentTiAgentURL',
+    sectionId: 'advancedConfigs',
+    labelKey: L('sections.advancedConfigs.tiagent_url_label'),
+  },
+  {
+    fieldId: 'aiAgentTiAgentTimeout',
+    sectionId: 'advancedConfigs',
+    labelKey: L('sections.advancedConfigs.tiagent_timeout_label'),
+  },
+  {
+    fieldId: 'aiAgentFallbackToStatic',
+    sectionId: 'advancedConfigs',
+    labelKey: L('sections.advancedConfigs.fallback_to_static_label'),
+  },
+  {
+    fieldId: 'aiAgentCacheTTLSeconds',
+    sectionId: 'advancedConfigs',
+    labelKey: L('sections.advancedConfigs.cache_ttl_seconds_label'),
+  },
+  {
+    fieldId: 'aiAgentDefaultProvider',
+    sectionId: 'advancedConfigs',
+    labelKey: L('sections.advancedConfigs.default_provider_label'),
+  },
+  {
+    fieldId: 'aiAgentCostWeight',
+    sectionId: 'advancedConfigs',
+    labelKey: L('sections.advancedConfigs.cost_weight_label'),
+  },
+  {
+    fieldId: 'aiAgentLatencyWeight',
+    sectionId: 'advancedConfigs',
+    labelKey: L('sections.advancedConfigs.latency_weight_label'),
+  },
+  {
+    fieldId: 'aiAgentQualityWeight',
+    sectionId: 'advancedConfigs',
+    labelKey: L('sections.advancedConfigs.quality_weight_label'),
+  },
+  {
+    fieldId: 'transientErrorCooldownSeconds',
+    sectionId: 'advancedConfigs',
+    labelKey: L('sections.advancedConfigs.transient_error_cooldown_seconds_label'),
+  },
+  {
+    fieldId: 'tokenRotationEnabled',
+    sectionId: 'advancedConfigs',
+    labelKey: L('sections.advancedConfigs.token_rotation_enabled_label'),
+  },
+  {
+    fieldId: 'tokenRotationRefreshBufferSeconds',
+    sectionId: 'advancedConfigs',
+    labelKey: L('sections.advancedConfigs.token_rotation_refresh_buffer_seconds_label'),
+  },
+  {
+    fieldId: 'disableClaudeCloakMode',
+    sectionId: 'advancedConfigs',
+    labelKey: L('sections.advancedConfigs.disable_claude_cloak_mode_label'),
+  },
+  // ── infrastructure ──────────────────────────────────────────────────────────
+  {
+    fieldId: 'pprofEnable',
+    sectionId: 'infrastructure',
+    labelKey: L('sections.infrastructure.pprof_enable_label'),
+  },
+  {
+    fieldId: 'pprofAddr',
+    sectionId: 'infrastructure',
+    labelKey: L('sections.infrastructure.pprof_addr_label'),
+  },
+  {
+    fieldId: 'metricsEnabled',
+    sectionId: 'infrastructure',
+    labelKey: L('sections.infrastructure.metrics_enabled_label'),
+  },
+  {
+    fieldId: 'metricsPath',
+    sectionId: 'infrastructure',
+    labelKey: L('sections.infrastructure.metrics_path_label'),
+  },
+  {
+    fieldId: 'logsRotationMaxSizeMB',
+    sectionId: 'infrastructure',
+    labelKey: L('sections.infrastructure.max_size_mb_label'),
+  },
+  {
+    fieldId: 'logsRotationMaxAgeDays',
+    sectionId: 'infrastructure',
+    labelKey: L('sections.infrastructure.max_age_days_label'),
+  },
+  {
+    fieldId: 'logsRotationMaxBackups',
+    sectionId: 'infrastructure',
+    labelKey: L('sections.infrastructure.max_backups_label'),
+  },
+  {
+    fieldId: 'logsRotationCompress',
+    sectionId: 'infrastructure',
+    labelKey: L('sections.infrastructure.compress_label'),
+  },
+  {
+    fieldId: 'semanticCacheEnabled',
+    sectionId: 'infrastructure',
+    labelKey: L('sections.infrastructure.semantic_cache_enabled_label'),
+  },
+  {
+    fieldId: 'semanticCacheSimilarityThreshold',
+    sectionId: 'infrastructure',
+    labelKey: L('sections.infrastructure.similarity_threshold_label'),
+  },
+  {
+    fieldId: 'semanticCacheMaxEntries',
+    sectionId: 'infrastructure',
+    labelKey: L('sections.infrastructure.max_entries_label'),
+  },
+  {
+    fieldId: 'semanticCacheTTL',
+    sectionId: 'infrastructure',
+    labelKey: L('sections.infrastructure.ttl_label'),
+  },
+  {
+    fieldId: 'semanticCacheEmbeddingModel',
+    sectionId: 'infrastructure',
+    labelKey: L('sections.infrastructure.embedding_model_label'),
+  },
+  {
+    fieldId: 'semanticCacheEmbeddingModelPath',
+    sectionId: 'infrastructure',
+    labelKey: L('sections.infrastructure.embedding_model_path_label'),
+  },
+  {
+    fieldId: 'semanticCacheTokenizerPath',
+    sectionId: 'infrastructure',
+    labelKey: L('sections.infrastructure.tokenizer_path_label'),
+  },
+  {
+    fieldId: 'semanticCacheCacheDir',
+    sectionId: 'infrastructure',
+    labelKey: L('sections.infrastructure.cache_dir_label'),
+  },
+  {
+    fieldId: 'semanticCacheOnlyCache2xx',
+    sectionId: 'infrastructure',
+    labelKey: L('sections.infrastructure.only_cache_2xx_label'),
+  },
+  {
+    fieldId: 'semanticCacheExcludeReasoningModels',
+    sectionId: 'infrastructure',
+    labelKey: L('sections.infrastructure.exclude_reasoning_models_label'),
+  },
+  {
+    fieldId: 'modelCapabilitiesEnabled',
+    sectionId: 'infrastructure',
+    labelKey: L('sections.infrastructure.model_capabilities_enabled_label'),
+  },
+  {
+    fieldId: 'modelCapabilitiesAutoDiscover',
+    sectionId: 'infrastructure',
+    labelKey: L('sections.infrastructure.auto_discover_label'),
+  },
+  {
+    fieldId: 'modelCapabilitiesPersistToSQLite',
+    sectionId: 'infrastructure',
+    labelKey: L('sections.infrastructure.persist_to_sqlite_label'),
+  },
+  {
+    fieldId: 'modelCapabilitiesCacheTTL',
+    sectionId: 'infrastructure',
+    labelKey: L('sections.infrastructure.cache_ttl_label'),
+  },
+  {
+    fieldId: 'modelCapabilitiesCostRulesEnabled',
+    sectionId: 'infrastructure',
+    labelKey: L('sections.infrastructure.cost_rules_enabled_label'),
+  },
+  {
+    fieldId: 'modelCapabilitiesCostRulesMonthlyBudgetUSD',
+    sectionId: 'infrastructure',
+    labelKey: L('sections.infrastructure.monthly_budget_usd_label'),
+  },
+  {
+    fieldId: 'modelCapabilitiesCostRulesRules',
+    sectionId: 'infrastructure',
+    labelKey: L('sections.infrastructure.cost_rules_label'),
+    hintKey: L('sections.infrastructure.cost_rules_hint'),
+  },
+  // ── llmFeatures ──────────────────────────────────────────────────────────
+  {
+    fieldId: 'intelligentRoutingEnabled',
+    sectionId: 'llmFeatures',
+    labelKey: L('sections.llmFeatures.intelligent_routing_enabled_label'),
+  },
+  {
+    fieldId: 'intelligentRoutingMode',
+    sectionId: 'llmFeatures',
+    labelKey: L('sections.llmFeatures.mode_label'),
+    hintKey: L('sections.llmFeatures.mode_hint'),
+  },
+  {
+    fieldId: 'intelligentRoutingTriggerModels',
+    sectionId: 'llmFeatures',
+    labelKey: L('sections.llmFeatures.trigger_models_label'),
+    hintKey: L('sections.llmFeatures.trigger_models_hint'),
+  },
+  {
+    fieldId: 'intelligentRoutingPreferredProviders',
+    sectionId: 'llmFeatures',
+    labelKey: L('sections.llmFeatures.preferred_providers_label'),
+    hintKey: L('sections.llmFeatures.preferred_providers_hint'),
+  },
+  {
+    fieldId: 'intelligentRoutingDefaultBudget',
+    sectionId: 'llmFeatures',
+    labelKey: L('sections.llmFeatures.default_budget_label'),
+    hintKey: L('sections.llmFeatures.default_budget_hint'),
+  },
+  {
+    fieldId: 'intelligentRoutingConfidenceThreshold',
+    sectionId: 'llmFeatures',
+    labelKey: L('sections.llmFeatures.confidence_threshold_label'),
+    hintKey: L('sections.llmFeatures.confidence_threshold_hint'),
+  },
+  {
+    fieldId: 'intelligentRoutingDecisionCacheTTL',
+    sectionId: 'llmFeatures',
+    labelKey: L('sections.llmFeatures.decision_cache_ttl_label'),
+    hintKey: L('sections.llmFeatures.decision_cache_ttl_hint'),
+  },
+  {
+    fieldId: 'llmRoutingEnabled',
+    sectionId: 'llmFeatures',
+    labelKey: L('sections.llmFeatures.llm_routing_enabled_label'),
+  },
+  {
+    fieldId: 'llmRoutingLLMProvider',
+    sectionId: 'llmFeatures',
+    labelKey: L('sections.llmFeatures.llm_provider_label'),
+    hintKey: L('sections.llmFeatures.llm_provider_hint'),
+  },
+  {
+    fieldId: 'llmRoutingLLMModel',
+    sectionId: 'llmFeatures',
+    labelKey: L('sections.llmFeatures.llm_model_label'),
+    hintKey: L('sections.llmFeatures.llm_model_hint'),
+  },
+  {
+    fieldId: 'llmRoutingCacheTTLSeconds',
+    sectionId: 'llmFeatures',
+    labelKey: L('sections.llmFeatures.cache_ttl_seconds_label'),
+  },
+  {
+    fieldId: 'llmRoutingTimeoutSeconds',
+    sectionId: 'llmFeatures',
+    labelKey: L('sections.llmFeatures.timeout_seconds_label'),
+  },
+  {
+    fieldId: 'llmRoutingFallbackToStatic',
+    sectionId: 'llmFeatures',
+    labelKey: L('sections.llmFeatures.fallback_to_static_label'),
+  },
+  {
+    fieldId: 'llmRoutingCostWeight',
+    sectionId: 'llmFeatures',
+    labelKey: L('sections.llmFeatures.cost_weight_label'),
+  },
+  {
+    fieldId: 'llmRoutingLatencyWeight',
+    sectionId: 'llmFeatures',
+    labelKey: L('sections.llmFeatures.latency_weight_label'),
+  },
+  {
+    fieldId: 'llmRoutingQualityWeight',
+    sectionId: 'llmFeatures',
+    labelKey: L('sections.llmFeatures.quality_weight_label'),
+  },
+  {
+    fieldId: 'llmRoutingAnalysisCompressionEnabled',
+    sectionId: 'llmFeatures',
+    labelKey: L('sections.llmFeatures.analysis_compression_enabled_label'),
+  },
+  {
+    fieldId: 'llmRoutingAnalysisCompressionStripNoise',
+    sectionId: 'llmFeatures',
+    labelKey: L('sections.llmFeatures.strip_noise_label'),
+  },
+  {
+    fieldId: 'llmRoutingAnalysisCompressionCompressRepeats',
+    sectionId: 'llmFeatures',
+    labelKey: L('sections.llmFeatures.compress_repeats_label'),
+  },
+  {
+    fieldId: 'llmRoutingAnalysisCompressionMaxPromptChars',
+    sectionId: 'llmFeatures',
+    labelKey: L('sections.llmFeatures.max_prompt_chars_label'),
+  },
+  {
+    fieldId: 'llmDiagnosticsEnabled',
+    sectionId: 'llmFeatures',
+    labelKey: L('sections.llmFeatures.llm_diagnostics_enabled_label'),
+  },
+  {
+    fieldId: 'llmDiagnosticsModelHint',
+    sectionId: 'llmFeatures',
+    labelKey: L('sections.llmFeatures.model_hint_label'),
+    hintKey: L('sections.llmFeatures.model_hint'),
+  },
+  {
+    fieldId: 'llmDiagnosticsProviderHint',
+    sectionId: 'llmFeatures',
+    labelKey: L('sections.llmFeatures.provider_hint_label'),
+    hintKey: L('sections.llmFeatures.provider_hint'),
+  },
+  {
+    fieldId: 'llmDiagnosticsErrorDiagnosisEnabled',
+    sectionId: 'llmFeatures',
+    labelKey: L('sections.llmFeatures.error_diagnosis_enabled_label'),
+  },
+  {
+    fieldId: 'llmDiagnosticsErrorDiagnosisCaptureStackTrace',
+    sectionId: 'llmFeatures',
+    labelKey: L('sections.llmFeatures.capture_stack_trace_label'),
+  },
+  {
+    fieldId: 'llmDiagnosticsErrorDiagnosisLogContextLines',
+    sectionId: 'llmFeatures',
+    labelKey: L('sections.llmFeatures.log_context_lines_label'),
+  },
+  {
+    fieldId: 'llmDiagnosticsErrorDiagnosisMinSeverity',
+    sectionId: 'llmFeatures',
+    labelKey: L('sections.llmFeatures.min_severity_label'),
+  },
+  {
+    fieldId: 'llmDiagnosticsErrorDiagnosisCooldown',
+    sectionId: 'llmFeatures',
+    labelKey: L('sections.llmFeatures.cooldown_label'),
+  },
+  {
+    fieldId: 'llmDiagnosticsLogAnalysisEnabled',
+    sectionId: 'llmFeatures',
+    labelKey: L('sections.llmFeatures.log_analysis_enabled_label'),
+  },
+  {
+    fieldId: 'llmDiagnosticsLogAnalysisInterval',
+    sectionId: 'llmFeatures',
+    labelKey: L('sections.llmFeatures.interval_label'),
+  },
+  {
+    fieldId: 'llmDiagnosticsLogAnalysisWindowSize',
+    sectionId: 'llmFeatures',
+    labelKey: L('sections.llmFeatures.window_size_label'),
+  },
+  {
+    fieldId: 'llmDiagnosticsLogAnalysisMaxEntries',
+    sectionId: 'llmFeatures',
+    labelKey: L('sections.llmFeatures.max_entries_label'),
+  },
+  {
+    fieldId: 'llmDiagnosticsLogAnalysisMinSeverity',
+    sectionId: 'llmFeatures',
+    labelKey: L('sections.llmFeatures.min_severity_label'),
+  },
+  {
+    fieldId: 'llmDiagnosticsLogAnalysisAlertOnAnomaly',
+    sectionId: 'llmFeatures',
+    labelKey: L('sections.llmFeatures.alert_on_anomaly_label'),
+  },
+  {
+    fieldId: 'llmFixSuggesterEnabled',
+    sectionId: 'llmFeatures',
+    labelKey: L('sections.llmFeatures.llm_fix_suggester_enabled_label'),
+  },
+  {
+    fieldId: 'llmFixSuggesterRecurrenceThreshold',
+    sectionId: 'llmFeatures',
+    labelKey: L('sections.llmFeatures.recurrence_threshold_label'),
+  },
+  {
+    fieldId: 'llmFixSuggesterTimeWindowHours',
+    sectionId: 'llmFeatures',
+    labelKey: L('sections.llmFeatures.time_window_hours_label'),
+  },
+  {
+    fieldId: 'llmFixSuggesterModelHint',
+    sectionId: 'llmFeatures',
+    labelKey: L('sections.llmFeatures.model_hint_label'),
+    hintKey: L('sections.llmFeatures.model_hint'),
+  },
+  {
+    fieldId: 'llmFixSuggesterProviderHint',
+    sectionId: 'llmFeatures',
+    labelKey: L('sections.llmFeatures.provider_hint_label'),
+    hintKey: L('sections.llmFeatures.provider_hint'),
+  },
+  {
+    fieldId: 'llmHealthQueryEnabled',
+    sectionId: 'llmFeatures',
+    labelKey: L('sections.llmFeatures.llm_health_query_enabled_label'),
+  },
+  {
+    fieldId: 'llmHealthQueryModelHint',
+    sectionId: 'llmFeatures',
+    labelKey: L('sections.llmFeatures.model_hint_label'),
+    hintKey: L('sections.llmFeatures.model_hint'),
+  },
+  {
+    fieldId: 'llmHealthQueryProviderHint',
+    sectionId: 'llmFeatures',
+    labelKey: L('sections.llmFeatures.provider_hint_label'),
+    hintKey: L('sections.llmFeatures.provider_hint'),
+  },
+  {
+    fieldId: 'llmHealthQueryTimeoutSeconds',
+    sectionId: 'llmFeatures',
+    labelKey: L('sections.llmFeatures.timeout_seconds_label'),
+  },
+  {
+    fieldId: 'llmClientCacheEnabled',
+    sectionId: 'llmFeatures',
+    labelKey: L('sections.llmFeatures.llm_client_cache_enabled_label'),
+  },
+  {
+    fieldId: 'llmClientCacheTTL',
+    sectionId: 'llmFeatures',
+    labelKey: L('sections.llmFeatures.cache_ttl_label'),
+  },
+  {
+    fieldId: 'llmClientCacheMaxItems',
+    sectionId: 'llmFeatures',
+    labelKey: L('sections.llmFeatures.cache_max_items_label'),
+  },
+  {
+    fieldId: 'llmClientModelHints',
+    sectionId: 'llmFeatures',
+    labelKey: L('sections.llmFeatures.model_hints_label'),
+    hintKey: L('sections.llmFeatures.model_hints_hint'),
+  },
+  // ── protocolConfigs ──────────────────────────────────────────────────────────
+  {
+    fieldId: 'xaiLiveMediaRelayEnabled',
+    sectionId: 'protocolConfigs',
+    labelKey: L('sections.protocolConfigs.live_media_relay_enabled_label'),
+  },
+  {
+    fieldId: 'xaiLiveMediaRelayMaxSessions',
+    sectionId: 'protocolConfigs',
+    labelKey: L('sections.protocolConfigs.max_sessions_label'),
+  },
+  {
+    fieldId: 'xaiLiveMediaRelayDisablePrivateRemoteIPs',
+    sectionId: 'protocolConfigs',
+    labelKey: L('sections.protocolConfigs.disable_private_remote_ips_label'),
+  },
+  {
+    fieldId: 'xaiLiveMediaRelayPublicIP',
+    sectionId: 'protocolConfigs',
+    labelKey: L('sections.protocolConfigs.public_ip_label'),
+  },
+  {
+    fieldId: 'xaiLiveMediaRelayUDPPortMin',
+    sectionId: 'protocolConfigs',
+    labelKey: L('sections.protocolConfigs.udp_port_min_label'),
+  },
+  {
+    fieldId: 'xaiLiveMediaRelayUDPPortMax',
+    sectionId: 'protocolConfigs',
+    labelKey: L('sections.protocolConfigs.udp_port_max_label'),
+  },
+  {
+    fieldId: 'xaiLiveMediaRelayICEServers',
+    sectionId: 'protocolConfigs',
+    labelKey: L('sections.protocolConfigs.ice_servers_label'),
+    hintKey: L('sections.protocolConfigs.ice_servers_hint'),
+  },
+  // ── quotaExtended ──────────────────────────────────────────────────────────
+  {
+    fieldId: 'quotaEnabled',
+    sectionId: 'quotaExtended',
+    labelKey: L('sections.quotaExtended.quota_enabled_label'),
+  },
+  {
+    fieldId: 'quotaDailyLimit',
+    sectionId: 'quotaExtended',
+    labelKey: L('sections.quotaExtended.daily_limit_label'),
+    hintKey: L('sections.quotaExtended.daily_limit_hint'),
+  },
+  {
+    fieldId: 'quotaTokenLimit',
+    sectionId: 'quotaExtended',
+    labelKey: L('sections.quotaExtended.token_limit_label'),
+    hintKey: L('sections.quotaExtended.token_limit_hint'),
+  },
+  {
+    fieldId: 'quotaStoreDir',
+    sectionId: 'quotaExtended',
+    labelKey: L('sections.quotaExtended.store_dir_label'),
+  },
+  {
+    fieldId: 'quotaAntigravityFamilyWindows',
+    sectionId: 'quotaExtended',
+    labelKey: L('sections.quotaExtended.family_windows_label'),
+  },
+  {
+    fieldId: 'quotaCodexSessionScope',
+    sectionId: 'quotaExtended',
+    labelKey: L('sections.quotaExtended.session_scope_label'),
+  },
+  {
+    fieldId: 'quotaCodexWeeklyScope',
+    sectionId: 'quotaExtended',
+    labelKey: L('sections.quotaExtended.weekly_scope_label'),
+  },
+  {
+    fieldId: 'quotaCacheActiveTTL',
+    sectionId: 'quotaExtended',
+    labelKey: L('sections.quotaExtended.active_ttl_label'),
+    hintKey: L('sections.quotaExtended.active_ttl_hint'),
+  },
+  {
+    fieldId: 'quotaCacheExhaustedTTL',
+    sectionId: 'quotaExtended',
+    labelKey: L('sections.quotaExtended.exhausted_ttl_label'),
+    hintKey: L('sections.quotaExtended.exhausted_ttl_hint'),
+  },
+  {
+    fieldId: 'quotaCacheRefreshInterval',
+    sectionId: 'quotaExtended',
+    labelKey: L('sections.quotaExtended.refresh_interval_label'),
+    hintKey: L('sections.quotaExtended.refresh_interval_hint'),
+  },
+  {
+    fieldId: 'quotaCacheMaxConcurrentRefreshes',
+    sectionId: 'quotaExtended',
+    labelKey: L('sections.quotaExtended.max_concurrent_refreshes_label'),
+  },
+  {
+    fieldId: 'quotaCachePersistToSQLite',
+    sectionId: 'quotaExtended',
+    labelKey: L('sections.quotaExtended.persist_to_sqlite_label'),
+  },
+  // ── routingExtended ──────────────────────────────────────────────────────────
+  {
+    fieldId: 'routingHealthCheckEnabled',
+    sectionId: 'routingExtended',
+    labelKey: L('sections.routingExtended.health_check_enabled_label'),
+  },
+  {
+    fieldId: 'routingHealthCheckInterval',
+    sectionId: 'routingExtended',
+    labelKey: L('sections.routingExtended.interval_label'),
+    hintKey: L('sections.routingExtended.interval_hint'),
+  },
+  {
+    fieldId: 'routingHealthCheckTimeout',
+    sectionId: 'routingExtended',
+    labelKey: L('sections.routingExtended.timeout_label'),
+    hintKey: L('sections.routingExtended.timeout_hint'),
+  },
+  {
+    fieldId: 'routingHealthCheckFailureThreshold',
+    sectionId: 'routingExtended',
+    labelKey: L('sections.routingExtended.failure_threshold_label'),
+  },
+  {
+    fieldId: 'routingHealthCheckSuccessThreshold',
+    sectionId: 'routingExtended',
+    labelKey: L('sections.routingExtended.success_threshold_label'),
+  },
+  {
+    fieldId: 'routingCircuitBreakerEnabled',
+    sectionId: 'routingExtended',
+    labelKey: L('sections.routingExtended.circuit_breaker_enabled_label'),
+  },
+  {
+    fieldId: 'routingCircuitBreakerFailureThreshold',
+    sectionId: 'routingExtended',
+    labelKey: L('sections.routingExtended.failure_threshold_label'),
+  },
+  {
+    fieldId: 'routingCircuitBreakerSuccessThreshold',
+    sectionId: 'routingExtended',
+    labelKey: L('sections.routingExtended.success_threshold_label'),
+  },
+  {
+    fieldId: 'routingCircuitBreakerTimeout',
+    sectionId: 'routingExtended',
+    labelKey: L('sections.routingExtended.timeout_label'),
+    hintKey: L('sections.routingExtended.timeout_hint'),
+  },
+  {
+    fieldId: 'routingFallbackEnabled',
+    sectionId: 'routingExtended',
+    labelKey: L('sections.routingExtended.fallback_enabled_label'),
+  },
+  {
+    fieldId: 'routingFallbackPersistToSQLite',
+    sectionId: 'routingExtended',
+    labelKey: L('sections.routingExtended.persist_to_sqlite_label'),
+  },
+  {
+    fieldId: 'routingFallbackDefaultChains',
+    sectionId: 'routingExtended',
+    labelKey: L('sections.routingExtended.default_chains_label'),
+    hintKey: L('sections.routingExtended.default_chains_hint'),
+  },
+  {
+    fieldId: 'routingChains',
+    sectionId: 'routingExtended',
+    labelKey: L('sections.routingExtended.chains_label'),
+    hintKey: L('sections.routingExtended.chains_hint'),
+  },
+  {
+    fieldId: 'routingPriorityFailoverEnabled',
+    sectionId: 'routingExtended',
+    labelKey: L('sections.routingExtended.priority_failover_enabled_label'),
+  },
+  {
+    fieldId: 'routingPriorityFailoverDefaultChain',
+    sectionId: 'routingExtended',
+    labelKey: L('sections.routingExtended.default_chain_label'),
+  },
+  {
+    fieldId: 'routingPriorityFailoverHealthCheckInterval',
+    sectionId: 'routingExtended',
+    labelKey: L('sections.routingExtended.health_check_interval_label'),
+  },
+  {
+    fieldId: 'routingPriorityFailoverEnableManagementAPI',
+    sectionId: 'routingExtended',
+    labelKey: L('sections.routingExtended.enable_management_api_label'),
+  },
 ];
 
 const MAX_RESULTS = 8;

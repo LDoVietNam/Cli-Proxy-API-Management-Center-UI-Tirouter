@@ -14,6 +14,12 @@ const parsePercent = (value: unknown): number | null => {
   return Number.isFinite(percent) && percent >= 0 && percent <= 100 ? percent : null;
 };
 
+const parseInstant = (value: unknown): number | null => {
+  if (typeof value !== 'string' || !/^\d{4}-\d{2}-\d{2}T/.test(value)) return null;
+  const ms = Date.parse(value);
+  return Number.isFinite(ms) && ms > 0 ? ms : null;
+};
+
 const parseUnixSeconds = (value: unknown): number | null => {
   if (typeof value !== 'number' && typeof value !== 'string') return null;
   if (typeof value === 'string' && !/^\d+$/.test(value.trim())) return null;
@@ -25,7 +31,10 @@ const parseUnixSeconds = (value: unknown): number | null => {
 };
 
 /** Normalize the live Connect-RPC response, never auth-file metadata or quota.signals. */
-export function readDevinQuotaResponse(payload: unknown): DevinQuotaData {
+export function readDevinQuotaResponse(
+  payload: unknown,
+  observedAtMs = Date.now()
+): DevinQuotaData {
   if (typeof payload === 'string') {
     try {
       payload = JSON.parse(payload);
@@ -37,17 +46,22 @@ export function readDevinQuotaResponse(payload: unknown): DevinQuotaData {
   const planInfo = asRecord(status.planInfo);
   const windows: DevinQuotaWindow[] = (['daily', 'weekly'] as const).map((id) => ({
     id,
-    label: id === 'daily' ? 'Daily' : 'Weekly',
-    usedPercent: parsePercent(status[`${id}QuotaRemainingPercent`]) !== null ? 100 - parsePercent(status[`${id}QuotaRemainingPercent`])! : null,
-    resetLabel: '',
+    remainingPercent: parsePercent(status[`${id}QuotaRemainingPercent`]),
     resetAtMs: parseUnixSeconds(status[`${id}QuotaResetAtUnix`]),
     periodHours: id === 'daily' ? 24 : 168,
   }));
   return {
     windows,
-    planType: typeof planInfo.planName === 'string' ? planInfo.planName.trim() || null : null,
+    observedAtMs: windows.some(
+      (window) => window.remainingPercent !== null || window.resetAtMs !== null
+    )
+      ? observedAtMs
+      : null,
+    plan: typeof planInfo.planName === 'string' ? planInfo.planName.trim() || null : null,
+    planStartMs: parseInstant(status.planStart),
+    planEndMs: parseInstant(status.planEnd),
   };
 }
 
 export const hasDevinQuotaObservation = (quota: DevinQuotaData): boolean =>
-  quota.windows.some((window) => window.usedPercent !== null || window.resetAtMs !== null);
+  quota.windows.some((window) => window.remainingPercent !== null || window.resetAtMs !== null);

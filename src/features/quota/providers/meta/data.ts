@@ -10,15 +10,10 @@ import { createMetaQuotaFetcher, MetaQuotaError } from './requests';
 const fetchMetaQuota = createMetaQuotaFetcher({
   request: (payload) => apiCallApi.request(payload),
   downloadText: (name) => authFilesApi.downloadText(name),
-  captureCurrent: () => {
-    const generation = captureQuotaCacheGeneration();
+  captureCurrent: (name) => {
+    const generation = captureQuotaCacheGeneration(name);
     return () => commitIfQuotaCacheCurrent(generation, () => {});
   },
-});
-
-const emptyData = (): MetaQuotaData => ({
-  planType: null,
-  windows: [],
 });
 
 export const META_CONFIG: QuotaProviderData<MetaQuotaState, MetaQuotaData> = {
@@ -37,11 +32,10 @@ export const META_CONFIG: QuotaProviderData<MetaQuotaState, MetaQuotaData> = {
   },
   storeSelector: (state) => state.metaQuota,
   storeSetter: 'setMetaQuota',
-  buildLoadingState: () => ({ status: 'loading', ...emptyData() }),
-  buildSuccessState: (data) => ({ status: 'success', ...data }),
+  buildLoadingState: () => ({ status: 'loading' }),
+  buildSuccessState: (data) => ({ status: 'success', data }),
   buildErrorState: (error, errorStatus) => ({
     status: 'error',
-    ...emptyData(),
     error,
     errorStatus,
   }),

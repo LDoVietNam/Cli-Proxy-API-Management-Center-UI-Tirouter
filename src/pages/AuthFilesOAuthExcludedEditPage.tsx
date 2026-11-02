@@ -24,6 +24,7 @@ import {
 import { getStringSetSignature, isOAuthEditorDirty } from '@/features/authFiles/oauthEditorState';
 import type { AuthFileItem, OAuthModelAliasEntry } from '@/types';
 import { getErrorMessage } from '@/utils/helpers';
+import editorStyles from '@/features/authFiles/components/OAuthEditor.module.scss';
 import styles from './AuthFilesOAuthExcludedEditPage.module.scss';
 
 type AuthFileModelItem = { id: string; display_name?: string; type?: string; owned_by?: string };
@@ -342,6 +343,7 @@ export function AuthFilesOAuthExcludedEditPage() {
       onBack={handleBack}
       backLabel={t('common.back')}
       backAriaLabel={t('common.back')}
+      topBarClassName={editorStyles.topBar}
       contentClassName={styles.pageContent}
       rightAction={
         <Button size="sm" onClick={handleSave} loading={saving} disabled={!canSave}>

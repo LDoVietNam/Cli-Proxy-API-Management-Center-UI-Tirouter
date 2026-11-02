@@ -31,6 +31,7 @@ export interface QuotaClassMap {
   codexResetCredits: string;
   codexResetCreditsTitle: string;
   codexResetCreditRow: string;
+  codexResetCreditRowSoon: string;
   codexResetCreditLabel: string;
   codexResetCreditTime: string;
   codexResetCreditsError: string;
@@ -73,6 +74,7 @@ export const QUOTA_CLASS_KEYS: readonly (keyof QuotaClassMap)[] = [
   'codexResetCredits',
   'codexResetCreditsTitle',
   'codexResetCreditRow',
+  'codexResetCreditRowSoon',
   'codexResetCreditLabel',
   'codexResetCreditTime',
   'codexResetCreditsError',

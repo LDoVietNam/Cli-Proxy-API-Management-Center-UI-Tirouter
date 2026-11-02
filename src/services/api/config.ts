@@ -19,4 +19,10 @@ export const configApi = {
    * 请求日志开关
    */
   updateRequestLog: (enabled: boolean) => apiClient.put('/request-log', { value: enabled }),
+
+  /**
+   * 文件日志开关（日志页读取本地文件所需）
+   */
+  updateLoggingToFile: (enabled: boolean) =>
+    apiClient.put('/logging-to-file', { value: enabled }),
 };

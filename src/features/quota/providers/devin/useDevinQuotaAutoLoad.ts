@@ -13,6 +13,7 @@ export function useDevinQuotaAutoLoad(
 ) {
   const attempted = useRef(new Set<string>());
   const session = useQuotaStore((state) => state.cacheGeneration);
+  const fileGenerations = useQuotaStore((state) => state.fileGenerations);
 
   useEffect(() => {
     if (disabled) return;
@@ -20,7 +21,7 @@ export function useDevinQuotaAutoLoad(
       if (type !== 'devin') return false;
       const key = JSON.stringify([
         session,
-        0,
+        fileGenerations[file.name] ?? 0,
         file.name,
         file.authIndex,
       ]);
@@ -30,5 +31,5 @@ export function useDevinQuotaAutoLoad(
       return useQuotaStore.getState().devinQuota[getQuotaCacheKey(file)]?.status !== 'loading';
     });
     if (targets.length > 0) void loadQuota(targets);
-  }, [disabled, entries, loadQuota, session]);
+  }, [disabled, entries, fileGenerations, loadQuota, session]);
 }

@@ -1,3 +1,4 @@
+import { memo } from 'react';
 import { toneForSuccessRate, type MeterTone } from '../utils';
 import styles from './Meter.module.scss';
 
@@ -20,11 +21,7 @@ interface MeterProps {
   showValue?: boolean;
 }
 
-/**
- * 细条计量器：填充色承载严重度，轨道是同色淡化步阶，
- * 因此在整条上都能读出状态。
- */
-export function Meter({ value, tone, ariaLabel, className }: MeterProps) {
+const MeterComponent = memo(function Meter({ value, tone, ariaLabel, className }: MeterProps) {
   const resolvedTone = tone ?? toneForSuccessRate(value);
   const clamped = value === null ? 0 : Math.max(0, Math.min(100, value));
 
@@ -41,4 +38,6 @@ export function Meter({ value, tone, ariaLabel, className }: MeterProps) {
       <div className={styles.fill} style={{ width: `${clamped}%` }} />
     </div>
   );
-}
+});
+
+export { MeterComponent as Meter };

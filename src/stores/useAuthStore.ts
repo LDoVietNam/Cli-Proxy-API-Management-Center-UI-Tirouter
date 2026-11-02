@@ -19,7 +19,7 @@ interface AuthStoreState extends AuthState {
 
   // 操作
   login: (credentials: LoginCredentials) => Promise<void>;
-  logout: () => void;
+  logout: (manual?: boolean) => void;
   checkAuth: () => Promise<boolean>;
   restoreSession: () => Promise<boolean>;
   updateServerVersion: (version: string | null, buildDate?: string | null) => void;
@@ -27,6 +27,27 @@ interface AuthStoreState extends AuthState {
 }
 
 let restoreSessionPromise: Promise<boolean> | null = null;
+
+// Bumped by logout() so an in-flight login cannot mark the session authenticated
+// after the user has already signed out.
+let sessionEpoch = 0;
+
+// Set when the user logs out on purpose, so the next load shows the login form
+// instead of silently restoring the session.
+const MANUAL_LOGOUT_KEY = 'cpa_manual_logout';
+
+function readManualLogout(): boolean {
+  return typeof sessionStorage !== 'undefined' && sessionStorage.getItem(MANUAL_LOGOUT_KEY) === '1';
+}
+
+function writeManualLogout(manual: boolean): void {
+  if (typeof sessionStorage === 'undefined') return;
+  if (manual) {
+    sessionStorage.setItem(MANUAL_LOGOUT_KEY, '1');
+  } else {
+    sessionStorage.removeItem(MANUAL_LOGOUT_KEY);
+  }
+}
 
 export const useAuthStore = create<AuthStoreState>()(
   persist(
@@ -45,52 +66,71 @@ export const useAuthStore = create<AuthStoreState>()(
       restoreSession: () => {
         if (restoreSessionPromise) return restoreSessionPromise;
 
-        restoreSessionPromise = (async () => {
-          obfuscatedStorage.migratePlaintextKeys(['apiBase', 'apiUrl', 'managementKey']);
+        const pending: Promise<boolean> = (async () => {
+          try {
+            obfuscatedStorage.migratePlaintextKeys(['apiBase', 'apiUrl', 'managementKey']);
 
-          const wasLoggedIn = localStorage.getItem('isLoggedIn') === 'true';
-          const legacyBase =
-            obfuscatedStorage.getItem<string>('apiBase') ||
-            obfuscatedStorage.getItem<string>('apiUrl', { encrypt: true });
-          const legacyKey = obfuscatedStorage.getItem<string>('managementKey');
+            const legacyBase =
+              obfuscatedStorage.getItem<string>('apiBase') ||
+              obfuscatedStorage.getItem<string>('apiUrl', { encrypt: true });
+            const legacyKey = obfuscatedStorage.getItem<string>('managementKey');
 
-          const { apiBase, managementKey, rememberPassword } = get();
-          const resolvedBase = normalizeApiBase(
-            apiBase || legacyBase || detectApiBaseFromLocation()
-          );
-          const resolvedKey = managementKey || legacyKey || '';
-          const resolvedRememberPassword =
-            rememberPassword || Boolean(managementKey) || Boolean(legacyKey);
+            const { apiBase, managementKey, rememberPassword } = get();
+            const resolvedBase = normalizeApiBase(
+              apiBase || legacyBase || detectApiBaseFromLocation()
+            );
+            const resolvedKey = managementKey || legacyKey || '';
+            const resolvedRememberPassword =
+              rememberPassword || Boolean(managementKey) || Boolean(legacyKey);
 
-          set({
-            apiBase: resolvedBase,
-            managementKey: resolvedKey,
-            rememberPassword: resolvedRememberPassword,
-          });
-          apiClient.setConfig({ apiBase: resolvedBase, managementKey: resolvedKey });
+            set({
+              apiBase: resolvedBase,
+              managementKey: resolvedKey,
+              rememberPassword: resolvedRememberPassword,
+            });
+            apiClient.setConfig({ apiBase: resolvedBase, managementKey: resolvedKey });
 
-          if (wasLoggedIn && resolvedBase && resolvedKey) {
-            try {
-              await get().login({
-                apiBase: resolvedBase,
-                managementKey: resolvedKey,
-                rememberPassword: resolvedRememberPassword,
-              });
-              return true;
-            } catch (error) {
-              console.warn('Auto login failed:', error);
-              return false;
+            // Try to enter without asking for a key: loopback callers are accepted
+            // by the server with no credentials. Remote callers fail this probe
+            // with 401 and fall back to the login form.
+            if (resolvedBase && !readManualLogout()) {
+              try {
+                await get().login({
+                  apiBase: resolvedBase,
+                  managementKey: resolvedKey,
+                  rememberPassword: resolvedRememberPassword,
+                });
+                return true;
+              } catch (error) {
+                console.warn('Auto login failed:', error);
+                return false;
+              }
             }
-          }
 
-          return false;
+            return false;
+          } catch (error) {
+            // Storage or migration failures must not leave the caller waiting on a
+            // rejected promise; the login form is the correct fallback.
+            console.warn('Session restore failed:', error);
+            return false;
+          }
         })();
 
-        return restoreSessionPromise;
+        restoreSessionPromise = pending;
+        // A probe that resolved must not stay cached: the next mount has to re-check
+        // (e.g. after the server is restarted or the key is finally provided).
+        void pending.finally(() => {
+          if (restoreSessionPromise === pending) {
+            restoreSessionPromise = null;
+          }
+        });
+
+        return pending;
       },
 
       // 登录
       login: async (credentials) => {
+        const epoch = sessionEpoch;
         const apiBase = normalizeApiBase(credentials.apiBase);
         const managementKey = credentials.managementKey.trim();
         const rememberPassword = credentials.rememberPassword ?? get().rememberPassword ?? false;
@@ -114,6 +154,12 @@ export const useAuthStore = create<AuthStoreState>()(
           // 测试连接 - 获取配置
           await useConfigStore.getState().fetchConfig(true);
 
+          if (epoch !== sessionEpoch) {
+            // logout() ran while this probe was in flight; keep the signed-out state.
+            set({ connectionStatus: 'disconnected' });
+            throw new Error('session discarded');
+          }
+
           // 登录成功
           set({
             isAuthenticated: true,
@@ -122,20 +168,25 @@ export const useAuthStore = create<AuthStoreState>()(
             rememberPassword,
             connectionStatus: 'connected',
           });
+          writeManualLogout(false);
           if (rememberPassword) {
             localStorage.setItem('isLoggedIn', 'true');
           } else {
             localStorage.removeItem('isLoggedIn');
           }
         } catch (error: unknown) {
-          set({ connectionStatus: 'error' });
+          if (epoch === sessionEpoch) {
+            set({ connectionStatus: 'error' });
+          }
           throw error;
         }
       },
 
       // 登出
-      logout: () => {
+      logout: (manual = true) => {
+        sessionEpoch += 1;
         restoreSessionPromise = null;
+        writeManualLogout(manual);
         useConfigStore.getState().clearCache();
         useModelsStore.getState().clearCache();
         useQuotaStore.getState().clearQuotaCache();
@@ -153,9 +204,12 @@ export const useAuthStore = create<AuthStoreState>()(
 
       // 检查认证状态
       checkAuth: async () => {
+        const epoch = sessionEpoch;
         const { managementKey, apiBase } = get();
 
-        if (!managementKey || !apiBase) {
+        // The management key is optional: the server bypasses it for loopback
+        // callers, so only a base URL is required to probe the API.
+        if (!apiBase) {
           return false;
         }
 
@@ -167,6 +221,10 @@ export const useAuthStore = create<AuthStoreState>()(
           // 验证连接
           await useConfigStore.getState().fetchConfig();
 
+          if (epoch !== sessionEpoch) {
+            return false;
+          }
+
           set({
             isAuthenticated: true,
             connectionStatus: 'connected',
@@ -174,6 +232,9 @@ export const useAuthStore = create<AuthStoreState>()(
 
           return true;
         } catch {
+          if (epoch !== sessionEpoch) {
+            return false;
+          }
           set({
             isAuthenticated: false,
             connectionStatus: 'error',
@@ -223,7 +284,9 @@ export const useAuthStore = create<AuthStoreState>()(
 // 监听全局未授权事件
 if (typeof window !== 'undefined') {
   window.addEventListener('unauthorized', () => {
-    useAuthStore.getState().logout();
+    // A rejected request is not a deliberate logout: keep the auto-entry probe
+    // available for the next load.
+    useAuthStore.getState().logout(false);
   });
 
   window.addEventListener('server-version-update', ((e: CustomEvent) => {

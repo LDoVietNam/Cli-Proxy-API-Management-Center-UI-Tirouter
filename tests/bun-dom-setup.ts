@@ -31,6 +31,7 @@ g.requestAnimationFrame = w.requestAnimationFrame.bind(w);
 g.cancelAnimationFrame = w.cancelAnimationFrame.bind(w);
 g.navigator = w.navigator;
 g.localStorage = w.localStorage;
+g.sessionStorage = w.sessionStorage;
 g.location = w.location;
 g.history = w.history;
 

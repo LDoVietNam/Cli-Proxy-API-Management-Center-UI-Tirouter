@@ -17,22 +17,37 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useSearchParams } from 'react-router-dom';
 import { authFilesApi } from '@/services/api';
+import { IconSearch, IconX } from '@/components/ui/icons';
+import { Select } from '@/components/ui/Select';
 import { useHeaderRefresh } from '@/hooks/useHeaderRefresh';
+import { useNow } from '@/hooks/useNow';
 import { useRevealGroup } from '@/hooks/motion';
 import { useAuthStore, useQuotaStore, useThemeStore } from '@/stores';
 import type { AuthFileItem } from '@/types';
+import { ProviderTabs } from '@/features/authFiles/components/ProviderTabs';
 import { QuotaMonitoringDashboard } from '@/features/quota-monitoring/QuotaMonitoringDashboard';
+import { QuotaHeader } from './components/QuotaHeader';
 import { QuotaManagementPanel } from './components/QuotaManagementPanel';
-import { CARD_ENTRANCE_BUDGET_MS, QUOTA_PAGE_SIZE, QUOTA_TAB_ORDER, type QuotaTabId } from './constants';
+import {
+  CARD_ENTRANCE_BUDGET_MS,
+  QUOTA_PAGE_SIZE,
+  QUOTA_SORT_MODES,
+  QUOTA_TAB_ORDER,
+  type QuotaSortMode,
+  type QuotaTabId,
+} from './constants';
 import {
   buildTabCounts,
   classifyQuotaFiles,
+  filterEntriesBySearch,
   filterEntriesByTab,
   paginate,
+  sortQuotaEntries,
   type QuotaFileEntry,
 } from './logic';
 import { QUOTA_ADAPTERS, getQuotaSetter, type QuotaCardState } from './providers';
 import type { QuotaProviderType } from './providers/types';
+import { nextRecoveryMs } from './resetSchedule';
 import { useQuotaActions } from './hooks/useQuotaActions';
 import { useQuotaBatchLoader } from './hooks/useQuotaBatchLoader';
 import { readQuotaUiState, writeQuotaUiState } from './uiState';
@@ -108,6 +123,11 @@ export function QuotaPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [tab, setTab] = useState<QuotaTabId>(() => readQuotaUiState()?.tab ?? 'all');
+  const [sortMode, setSortMode] = useState<QuotaSortMode>(
+    () => readQuotaUiState()?.sortMode ?? 'default'
+  );
+  const [search, setSearch] = useState('');
+  const searchInputRef = useRef<HTMLInputElement>(null);
   const [page, setPage] = useState(1);
   // 管理 tab 主体的入场级联（标题 → meta → 动作 → tabs，级差 70ms）
   const revealRef = useRevealGroup<HTMLDivElement>();
@@ -142,11 +162,15 @@ export function QuotaPage() {
 
   const entries = useMemo(() => classifyQuotaFiles(files), [files]);
   const tabCounts = useMemo(() => buildTabCounts(entries), [entries]);
-  const filteredEntries = useMemo(() => filterEntriesByTab(entries, tab), [entries, tab]);
-  const { pageItems, currentPage, totalPages } = useMemo(
-    () => paginate(filteredEntries, page, QUOTA_PAGE_SIZE),
-    [filteredEntries, page]
+  const filteredEntries = useMemo(
+    () => filterEntriesBySearch(filterEntriesByTab(entries, tab), search),
+    [entries, tab, search]
   );
+
+  const handleSearchChange = useCallback((value: string) => {
+    setSearch(value);
+    setPage(1);
+  }, []);
 
   // provider tab（'all'/'claude'/...）旧逻辑原样保留 —— 与页级 tab 互不相干
   const handleTabChange = useCallback((next: string) => {
@@ -154,6 +178,18 @@ export function QuotaPage() {
     setPage(1);
     writeQuotaUiState({ tab: next as QuotaTabId });
   }, []);
+
+  const handleSortModeChange = useCallback((next: string) => {
+    setSortMode(next as QuotaSortMode);
+    setPage(1);
+    writeQuotaUiState({ sortMode: next as QuotaSortMode });
+  }, []);
+
+  const sortOptions = useMemo(
+    () =>
+      QUOTA_SORT_MODES.map((mode) => ({ value: mode, label: t(`quota_management.sort_${mode}`) })),
+    [t]
+  );
 
   /* ---------- 额度缓存 ---------- */
 
@@ -178,6 +214,25 @@ export function QuotaPage() {
   const getQuota = useCallback(
     (entry: QuotaFileEntry): QuotaCardState | undefined => quotaByType[entry.type][entry.file.name],
     [quotaByType]
+  );
+
+  // 只在「最快恢复优先」下订阅分钟时钟，避免默认序每分钟换一次 pageItems 身份。
+  const tick = useNow(sortMode !== 'default');
+  const sortNow = sortMode === 'default' ? 0 : tick;
+
+  const resolveNextRecovery = useCallback(
+    (entry: QuotaFileEntry) => nextRecoveryMs(entry.type, getQuota(entry), sortNow),
+    [getQuota, sortNow]
+  );
+  // 排序在分页之前：否则「最快恢复」只在当前页内成立。
+  const sortedEntries = useMemo(
+    () => sortQuotaEntries(filteredEntries, sortMode, resolveNextRecovery),
+    [filteredEntries, sortMode, resolveNextRecovery]
+  );
+
+  const { pageItems, currentPage, totalPages } = useMemo(
+    () => paginate(sortedEntries, page, QUOTA_PAGE_SIZE),
+    [sortedEntries, page]
   );
 
   const { loadedCount, attentionCount } = useMemo(() => {
@@ -259,37 +314,40 @@ export function QuotaPage() {
 
   const isEmpty = !loading && filteredEntries.length === 0;
 
-  return (
-    <div className={styles.page}>
-      {/* 页级 tabs（管理 | 监控）—— 合并 /quota-monitoring 的入口 */}
-      <div
-        ref={tabListRef}
-        className={styles.pageTabs}
-        role="tablist"
-        aria-label={t('nav.quota_management')}
-        onKeyDown={handleTabListKeyDown}
-      >
-        {PAGE_TABS.map(({ id, labelKey }) => {
-          const isActive = pageTab === id;
-          return (
-            <button
-              key={id}
-              id={id === 'monitoring' ? MONITORING_TAB_ID : MANAGEMENT_TAB_ID}
-              type="button"
-              role="tab"
-              className={`${styles.pageTab} ${isActive ? styles.pageTabActive : ''}`}
-              aria-selected={isActive}
-              aria-controls={id === 'monitoring' ? MONITORING_PANEL_ID : MANAGEMENT_PANEL_ID}
-              tabIndex={isActive ? 0 : -1}
-              onClick={() => setPageTab(id)}
-            >
-              {t(labelKey)}
-            </button>
-          );
-        })}
-      </div>
+  // 页级 tabs（管理 | 监控）—— 合并 /quota-monitoring 的入口
+  const pageTabs = (
+    <div
+      ref={tabListRef}
+      className={styles.pageTabs}
+      role="tablist"
+      aria-label={t('nav.quota_management')}
+      onKeyDown={handleTabListKeyDown}
+    >
+      {PAGE_TABS.map(({ id, labelKey }) => {
+        const isActive = pageTab === id;
+        return (
+          <button
+            key={id}
+            id={id === 'monitoring' ? MONITORING_TAB_ID : MANAGEMENT_TAB_ID}
+            type="button"
+            role="tab"
+            className={`${styles.pageTab} ${isActive ? styles.pageTabActive : ''}`}
+            aria-selected={isActive}
+            aria-controls={id === 'monitoring' ? MONITORING_PANEL_ID : MANAGEMENT_PANEL_ID}
+            tabIndex={isActive ? 0 : -1}
+            onClick={() => setPageTab(id)}
+          >
+            {t(labelKey)}
+          </button>
+        );
+      })}
+    </div>
+  );
 
-      {pageTab === 'monitoring' ? (
+  if (pageTab === 'monitoring') {
+    return (
+      <div className={styles.page}>
+        {pageTabs}
         <div
           id={MONITORING_PANEL_ID}
           role="tabpanel"
@@ -298,43 +356,105 @@ export function QuotaPage() {
         >
           {hasOpenedMonitoring && <QuotaMonitoringDashboard />}
         </div>
-      ) : (
-        <div
-          id={MANAGEMENT_PANEL_ID}
-          role="tabpanel"
-          aria-labelledby={MANAGEMENT_TAB_ID}
-          tabIndex={-1}
-        >
-          <QuotaManagementPanel
-            revealRef={revealRef}
-            loading={loading}
-            error={error}
-            isEmpty={isEmpty}
-            tab={tab}
-            tabCounts={tabCounts}
-            filteredEntries={filteredEntries}
-            pageItems={pageItems}
-            currentPage={currentPage}
-            totalPages={totalPages}
-            entries={entries}
-            loadedCount={loadedCount}
-            attentionCount={attentionCount}
-            refreshing={loading || batchLoading}
-            disableControls={disableControls}
-            canUseActions={canUseActions}
+      </div>
+    );
+  }
+
+  return (
+    <div className={styles.page}>
+      {pageTabs}
+
+      <div
+        id={MANAGEMENT_PANEL_ID}
+        ref={revealRef}
+        role="tabpanel"
+        aria-labelledby={MANAGEMENT_TAB_ID}
+        tabIndex={-1}
+        className={styles.workbench}
+      >
+        <QuotaHeader
+          totalCount={entries.length}
+          loadedCount={loadedCount}
+          attentionCount={attentionCount}
+          refreshing={loading || batchLoading}
+          disableControls={disableControls}
+          onRefreshAll={handleRefreshAll}
+        />
+
+        {/* 提供商导航与搜索工具栏分层，避免不同控件争夺视觉焦点。 */}
+        <div className={styles.tabsRow} data-reveal>
+          <ProviderTabs
+            types={['all', ...QUOTA_TAB_ORDER]}
+            counts={tabCounts}
+            active={tab}
             resolvedTheme={resolvedTheme}
-            resettingQuotaName={resettingQuotaName}
-            getQuota={getQuota}
-            cardEntranceDelay={cardEntranceDelay}
-            onRefreshAll={handleRefreshAll}
-            onTabChange={handleTabChange}
-            onRefresh={refreshQuota}
-            onReset={resetQuota}
-            onPageChange={setPage}
-            t={t}
+            onChange={handleTabChange}
           />
         </div>
-      )}
+
+        <div className={styles.toolbar}>
+          <div className={styles.search}>
+            <IconSearch size={16} className={styles.searchIcon} aria-hidden="true" />
+            <input
+              ref={searchInputRef}
+              className={styles.searchInput}
+              type="search"
+              value={search}
+              onChange={(event) => handleSearchChange(event.target.value)}
+              placeholder={t('quota_management.search_placeholder')}
+              aria-label={t('quota_management.search_label')}
+            />
+            {search && (
+              <button
+                type="button"
+                className={styles.clearSearch}
+                aria-label={t('quota_management.search_clear')}
+                title={t('quota_management.search_clear')}
+                onClick={() => {
+                  handleSearchChange('');
+                  searchInputRef.current?.focus();
+                }}
+              >
+                <IconX size={14} aria-hidden="true" />
+              </button>
+            )}
+          </div>
+          <div className={styles.sort}>
+            <Select
+              value={sortMode}
+              options={sortOptions}
+              onChange={handleSortModeChange}
+              ariaLabel={t('quota_management.sort_label')}
+              size="sm"
+            />
+          </div>
+        </div>
+
+        <QuotaManagementPanel
+          loading={loading}
+          error={error}
+          isEmpty={isEmpty}
+          tab={tab}
+          filteredEntries={filteredEntries}
+          pageItems={pageItems}
+          currentPage={currentPage}
+          totalPages={totalPages}
+          canUseActions={canUseActions}
+          resolvedTheme={resolvedTheme}
+          resettingQuotaName={resettingQuotaName}
+          getQuota={getQuota}
+          cardEntranceDelay={cardEntranceDelay}
+          searchActive={search.trim().length > 0}
+          onClearSearch={() => handleSearchChange('')}
+          onTabChange={handleTabChange}
+          onRefresh={refreshQuota}
+          onReset={resetQuota}
+          onPageChange={setPage}
+          t={t}
+        />
+      </div>
     </div>
   );
 }
+
+export default QuotaPage;

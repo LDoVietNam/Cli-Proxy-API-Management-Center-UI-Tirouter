@@ -1,4 +1,4 @@
-import { useDeferredValue, useEffect, useMemo, useRef, useState } from 'react';
+import { useDeferredValue, useEffect, useMemo, useReducer, useRef, useState } from 'react';
 import type { PointerEvent as ReactPointerEvent } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Card } from '@/components/ui/Card';
@@ -28,6 +28,7 @@ import {
 import { useHeaderRefresh } from '@/hooks/useHeaderRefresh';
 import { useLocalStorage } from '@/hooks/useLocalStorage';
 import { useAuthStore, useConfigStore, useNotificationStore } from '@/stores';
+import { configApi } from '@/services/api/config';
 import { logsApi, type LogsQuery } from '@/services/api/logs';
 import { copyToClipboard } from '@/utils/clipboard';
 import { getErrorMessage } from '@/utils/helpers';
@@ -38,6 +39,8 @@ import { HTTP_METHODS, STATUS_GROUPS, resolveStatusGroup, type LogState } from '
 import { parseLogLine } from './hooks/logParsing';
 import { useLogFilters } from './hooks/useLogFilters';
 import { isNearBottom, useLogScroller } from './hooks/useLogScroller';
+import { createLogRequestGuard, createLogRequestQueue } from './hooks/logRequests';
+import { errorLogViewerReducer } from './hooks/errorLogViewer';
 import styles from './LogsPage.module.scss';
 
 interface ErrorLogItem {
@@ -143,6 +146,8 @@ export function LogsPage() {
   const { t } = useTranslation();
   const { showNotification, showConfirmation } = useNotificationStore();
   const connectionStatus = useAuthStore((state) => state.connectionStatus);
+  const apiBase = useAuthStore((state) => state.apiBase);
+  const managementKey = useAuthStore((state) => state.managementKey);
   const config = useConfigStore((state) => state.config);
   const requestLogEnabled = config?.requestLog ?? false;
   const loggingToFileEnabled = config?.loggingToFile ?? false;
@@ -169,23 +174,28 @@ export function LogsPage() {
   const [errorLogs, setErrorLogs] = useState<ErrorLogItem[]>([]);
   const [loadingErrors, setLoadingErrors] = useState(false);
   const [errorLogsError, setErrorLogsError] = useState('');
-  const [selectedErrorLog, setSelectedErrorLog] = useState<ErrorLogItem | null>(null);
-  const [selectedErrorLogText, setSelectedErrorLogText] = useState('');
-  const [selectedErrorLogError, setSelectedErrorLogError] = useState('');
-  const [selectedErrorLogLoading, setSelectedErrorLogLoading] = useState(false);
+  const [errorLogViewer, dispatchErrorLogViewer] = useReducer(errorLogViewerReducer, {
+    status: 'closed',
+  });
+  const selectedErrorLog = errorLogViewer.status === 'closed' ? null : errorLogViewer.item;
   const [requestLogId, setRequestLogId] = useState<string | null>(null);
   const [requestLogDownloading, setRequestLogDownloading] = useState(false);
   const [fullscreenLogs, setFullscreenLogs] = useState(false);
+  const [enablingFileLogging, setEnablingFileLogging] = useState(false);
 
-  const errorLogViewRequestRef = useRef(0);
+  const [requests] = useState(() => ({
+    session: createLogRequestGuard(),
+    logs: createLogRequestQueue(),
+    errors: createLogRequestGuard(),
+    viewer: createLogRequestGuard(),
+  }));
+
   const longPressRef = useRef<{
     timer: number | null;
     startX: number;
     startY: number;
     fired: boolean;
   } | null>(null);
-  const logRequestInFlightRef = useRef(false);
-  const pendingFullReloadRef = useRef(false);
 
   // 保存最新游标用于增量获取；新接口优先使用 cursor，旧接口继续使用 after。
   const logPositionRef = useRef<LogPosition>({});
@@ -217,12 +227,13 @@ export function LogsPage() {
   const clearDisabled = disableControls || showFileLoggingRequired;
 
   async function loadLogs(incremental = false) {
-    if (connectionStatus !== 'connected') {
+    // Queued reloads must read live context, not the render that started the old request.
+    if (useAuthStore.getState().connectionStatus !== 'connected') {
       setLoading(false);
       return;
     }
 
-    if (cpaNeedsFileLogging) {
+    if (!useConfigStore.getState().config?.loggingToFile) {
       if (!incremental) {
         resetLogPosition();
         setFileLoggingRequired(false);
@@ -233,14 +244,8 @@ export function LogsPage() {
       return;
     }
 
-    if (logRequestInFlightRef.current) {
-      if (!incremental) {
-        pendingFullReloadRef.current = true;
-      }
-      return;
-    }
-
-    logRequestInFlightRef.current = true;
+    const request = requests.logs.startRead(incremental);
+    if (request === null) return;
 
     if (!incremental) {
       setLoading(true);
@@ -255,6 +260,7 @@ export function LogsPage() {
 
       const params = buildLogsQuery(incremental, logPositionRef.current);
       const data = await logsApi.fetchLogs(params);
+      if (!requests.logs.isCurrent(request)) return;
       setFileLoggingRequired(false);
 
       updateLogPosition(data, incremental);
@@ -288,6 +294,7 @@ export function LogsPage() {
         setLogState({ buffer, visibleFrom });
       }
     } catch (err: unknown) {
+      if (!requests.logs.isCurrent(request)) return;
       console.error('Failed to load logs:', err);
       if (isLoggingToFileDisabledError(err)) {
         if (!incremental) {
@@ -302,13 +309,11 @@ export function LogsPage() {
         setError(getErrorMessage(err) || t('logs.load_error'));
       }
     } finally {
-      if (!incremental) {
-        setLoading(false);
-      }
-      logRequestInFlightRef.current = false;
-      if (pendingFullReloadRef.current) {
-        pendingFullReloadRef.current = false;
-        void loadLogs(false);
+      if (requests.logs.isCurrent(request)) {
+        if (!incremental) {
+          setLoading(false);
+        }
+        if (requests.logs.finish(request)) void loadLogs(false);
       }
     }
   }
@@ -324,27 +329,65 @@ export function LogsPage() {
       showNotification(t('logs.file_logging_required'), 'warning');
       return;
     }
+    const session = requests.session.capture();
     showConfirmation({
       title: t('logs.clear_confirm_title', { defaultValue: 'Clear Logs' }),
       message: t('logs.clear_confirm'),
       variant: 'danger',
       confirmText: t('common.confirm'),
       onConfirm: async () => {
+        if (!requests.session.isCurrent(session)) return;
+        if (useAuthStore.getState().connectionStatus !== 'connected') return;
+        if (!useConfigStore.getState().config?.loggingToFile) return;
+        const request = requests.logs.startClear();
+        if (request === null) return;
+        let clearFailed = false;
         try {
           await logsApi.clearLogs();
+          if (!requests.logs.isCurrent(request)) return;
           setLogState({ buffer: [], visibleFrom: 0 });
           resetLogPosition();
           setFileLoggingRequired(false);
           showNotification(t('logs.clear_success'), 'success');
         } catch (err: unknown) {
+          if (!requests.logs.isCurrent(request)) return;
+          clearFailed = true;
           const message = getErrorMessage(err);
           showNotification(
             `${t('notification.delete_failed')}${message ? `: ${message}` : ''}`,
             'error'
           );
+        } finally {
+          if (requests.logs.isCurrent(request)) {
+            // Clear superseded the old read; recover it even when deletion fails.
+            if (requests.logs.finish(request, clearFailed)) void loadLogs(false);
+          }
         }
       },
     });
+  };
+
+  // The logs endpoints read rotating files from disk, so the page cannot show
+  // anything until logging-to-file is on. Save the flag through the management
+  // API and mirror it into the config store; the subscription above then reloads.
+  const enableFileLogging = async () => {
+    if (enablingFileLogging) return;
+    setEnablingFileLogging(true);
+    try {
+      await configApi.updateLoggingToFile(true);
+      useConfigStore.getState().updateConfigValue('logging-to-file', true);
+      await useConfigStore.getState().fetchConfig(true);
+      setFileLoggingRequired(false);
+      showNotification(t('logs.file_logging_enabled'), 'success');
+    } catch (err: unknown) {
+      const message = getErrorMessage(err);
+      showNotification(
+        `${t('logs.file_logging_enable_failed')}${message ? `: ${message}` : ''}`,
+        'error'
+      );
+    } finally {
+      setEnablingFileLogging(false);
+    }
   };
 
   const downloadLogs = () => {
@@ -354,17 +397,20 @@ export function LogsPage() {
   };
 
   const loadErrorLogs = async () => {
-    if (connectionStatus !== 'connected') {
+    if (useAuthStore.getState().connectionStatus !== 'connected') {
       setLoadingErrors(false);
       return;
     }
+    const request = requests.errors.invalidate();
     setLoadingErrors(true);
     setErrorLogsError('');
     try {
       const res = await logsApi.fetchErrorLogs();
+      if (!requests.errors.isCurrent(request)) return;
       // API 返回 { files: [...] }
       setErrorLogs(Array.isArray(res.files) ? res.files : []);
     } catch (err: unknown) {
+      if (!requests.errors.isCurrent(request)) return;
       console.error('Failed to load error logs:', err);
       setErrorLogs([]);
       const message = getErrorMessage(err);
@@ -372,16 +418,19 @@ export function LogsPage() {
         message ? `${t('logs.error_logs_load_error')}: ${message}` : t('logs.error_logs_load_error')
       );
     } finally {
-      setLoadingErrors(false);
+      if (requests.errors.isCurrent(request)) setLoadingErrors(false);
     }
   };
 
   const downloadErrorLog = async (name: string) => {
+    const session = requests.session.capture();
     try {
       const response = await logsApi.downloadErrorLog(name);
+      if (!requests.session.isCurrent(session)) return;
       downloadBlob({ filename: name, blob: new Blob([response.data], { type: 'text/plain' }) });
       showNotification(t('logs.error_log_download_success'), 'success');
     } catch (err: unknown) {
+      if (!requests.session.isCurrent(session)) return;
       const message = getErrorMessage(err);
       showNotification(
         `${t('notification.download_failed')}${message ? `: ${message}` : ''}`,
@@ -391,41 +440,36 @@ export function LogsPage() {
   };
 
   const openErrorLog = async (item: ErrorLogItem) => {
-    const requestId = errorLogViewRequestRef.current + 1;
-    errorLogViewRequestRef.current = requestId;
-    setSelectedErrorLog(item);
-    setSelectedErrorLogText('');
-    setSelectedErrorLogError('');
-    setSelectedErrorLogLoading(true);
+    const requestId = requests.viewer.invalidate();
+    dispatchErrorLogViewer({ type: 'open', item });
 
     try {
       const response = await logsApi.downloadErrorLog(item.name);
       const text = await responseDataToText(response.data);
-      if (errorLogViewRequestRef.current !== requestId) return;
-      setSelectedErrorLogText(text);
+      if (!requests.viewer.isCurrent(requestId)) return;
+      dispatchErrorLogViewer({ type: 'ready', text });
     } catch (err: unknown) {
-      if (errorLogViewRequestRef.current !== requestId) return;
+      if (!requests.viewer.isCurrent(requestId)) return;
       const message = getErrorMessage(err);
-      setSelectedErrorLogError(
-        message ? `${t('logs.error_log_open_failed')}: ${message}` : t('logs.error_log_open_failed')
-      );
-    } finally {
-      if (errorLogViewRequestRef.current === requestId) {
-        setSelectedErrorLogLoading(false);
-      }
+      dispatchErrorLogViewer({
+        type: 'error',
+        message: message
+          ? `${t('logs.error_log_open_failed')}: ${message}`
+          : t('logs.error_log_open_failed'),
+      });
     }
   };
 
   const closeErrorLogViewer = () => {
-    errorLogViewRequestRef.current += 1;
-    setSelectedErrorLog(null);
-    setSelectedErrorLogText('');
-    setSelectedErrorLogError('');
-    setSelectedErrorLogLoading(false);
+    requests.viewer.invalidate();
+    dispatchErrorLogViewer({ type: 'close' });
   };
 
   const copySelectedErrorLog = async () => {
-    const ok = await copyToClipboard(selectedErrorLogText);
+    if (errorLogViewer.status !== 'ready' || !errorLogViewer.text) return;
+    const session = requests.session.capture();
+    const ok = await copyToClipboard(errorLogViewer.text);
+    if (!requests.session.isCurrent(session)) return;
     showNotification(
       ok
         ? t('logs.error_log_copy_success')
@@ -435,20 +479,74 @@ export function LogsPage() {
   };
 
   useEffect(() => {
+    const resetLogs = () => {
+      requests.logs.invalidate();
+      resetLogPosition();
+      setLogState({ buffer: [], visibleFrom: 0 });
+      setLoading(false);
+      setError('');
+      setFileLoggingRequired(false);
+    };
+    const resetErrors = () => {
+      requests.errors.invalidate();
+      setErrorLogs([]);
+      setLoadingErrors(false);
+      setErrorLogsError('');
+    };
+    const invalidateSession = () => {
+      requests.session.invalidate();
+      requests.logs.invalidate();
+      requests.errors.invalidate();
+      requests.viewer.invalidate();
+    };
+
+    // Store subscriptions invalidate synchronously, before a response can beat effect cleanup.
+    const unsubscribeAuth = useAuthStore.subscribe((next, previous) => {
+      if (
+        next.apiBase === previous.apiBase &&
+        next.managementKey === previous.managementKey &&
+        next.connectionStatus === previous.connectionStatus &&
+        next.isAuthenticated === previous.isAuthenticated
+      )
+        return;
+      invalidateSession();
+      resetLogs();
+      resetErrors();
+      dispatchErrorLogViewer({ type: 'close' });
+      setRequestLogId(null);
+      setRequestLogDownloading(false);
+    });
+    const unsubscribeConfig = useConfigStore.subscribe((next, previous) => {
+      if (
+        next.config?.loggingToFile !== previous.config?.loggingToFile ||
+        next.config?.requestLog !== previous.config?.requestLog
+      ) {
+        resetLogs();
+        resetErrors();
+      }
+    });
+    return () => {
+      unsubscribeAuth();
+      unsubscribeConfig();
+      invalidateSession();
+    };
+  }, [requests]);
+
+  useEffect(() => {
     if (connectionStatus === 'connected') {
       resetLogPosition();
       setFileLoggingRequired(false);
       loadLogs(false);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [connectionStatus, loggingToFileEnabled]);
+  }, [connectionStatus, apiBase, managementKey, loggingToFileEnabled]);
 
   useEffect(() => {
     if (activeTab !== 'errors') return;
     if (connectionStatus !== 'connected') return;
     void loadErrorLogs();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeTab, connectionStatus, requestLogEnabled]);
+  }, [activeTab, connectionStatus, apiBase, managementKey, requestLogEnabled]);
 
   useEffect(() => {
     if (!autoRefresh || connectionStatus !== 'connected' || showFileLoggingRequired) {
@@ -1094,6 +1192,17 @@ export function LogsPage() {
                     ? 'logs.cpa_file_logging_required_desc'
                     : 'logs.file_logging_required_desc'
                 )}
+                action={
+                  <Button
+                    variant="primary"
+                    size="sm"
+                    onClick={() => void enableFileLogging()}
+                    loading={enablingFileLogging}
+                    disabled={disableControls || enablingFileLogging}
+                  >
+                    {t('logs.enable_file_logging', 'Enable file logging')}
+                  </Button>
+                }
               />
             ) : (
               <EmptyState title={t('logs.empty_title')} description={t('logs.empty_desc')} />
@@ -1189,7 +1298,7 @@ export function LogsPage() {
       </div>
 
       <Modal
-        open={Boolean(selectedErrorLog)}
+        open={errorLogViewer.status !== 'closed'}
         onClose={closeErrorLogViewer}
         title={selectedErrorLog?.name ?? t('logs.error_log_view_title')}
         width={960}
@@ -1203,7 +1312,7 @@ export function LogsPage() {
               onClick={() => {
                 void copySelectedErrorLog();
               }}
-              disabled={!selectedErrorLogText || selectedErrorLogLoading}
+              disabled={errorLogViewer.status !== 'ready' || !errorLogViewer.text}
             >
               {t('common.copy')}
             </Button>
@@ -1213,7 +1322,7 @@ export function LogsPage() {
                   void downloadErrorLog(selectedErrorLog.name);
                 }
               }}
-              disabled={!selectedErrorLog || selectedErrorLogLoading}
+              disabled={errorLogViewer.status === 'closed' || errorLogViewer.status === 'loading'}
             >
               {t('logs.error_logs_download')}
             </Button>
@@ -1233,19 +1342,23 @@ export function LogsPage() {
               </span>
             </div>
           )}
-          {selectedErrorLogError && <div className="error-box">{selectedErrorLogError}</div>}
-          {selectedErrorLogLoading ? (
+          {errorLogViewer.status === 'error' && (
+            <div className="error-box">{errorLogViewer.message}</div>
+          )}
+          {errorLogViewer.status === 'loading' && (
             <div className={styles.hintLoading}>
               <LoadingSpinner size={16} />
               {t('common.loading')}
             </div>
-          ) : selectedErrorLogText ? (
-            <pre className={styles.errorLogContent} spellCheck={false}>
-              {selectedErrorLogText}
-            </pre>
-          ) : !selectedErrorLogError ? (
-            <div className="hint">{t('logs.error_log_empty_content')}</div>
-          ) : null}
+          )}
+          {errorLogViewer.status === 'ready' &&
+            (errorLogViewer.text ? (
+              <pre className={styles.errorLogContent} spellCheck={false}>
+                {errorLogViewer.text}
+              </pre>
+            ) : (
+              <div className="hint">{t('logs.error_log_empty_content')}</div>
+            ))}
         </div>
       </Modal>
 

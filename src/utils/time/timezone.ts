@@ -42,3 +42,20 @@ export function formatUtcOffsetLabel(offsetMinutes: number): string {
 export function resolveTimeZoneLabel(date: Date = new Date()): string {
   return formatUtcOffsetLabel(-date.getTimezoneOffset());
 }
+
+const LOCAL_DATE_TIME_FORMATTER = new Intl.DateTimeFormat('en-CA', {
+  year: 'numeric',
+  month: '2-digit',
+  day: '2-digit',
+  hour: '2-digit',
+  minute: '2-digit',
+  second: '2-digit',
+  hourCycle: 'h23',
+});
+
+/** `YYYY-MM-DD HH:mm:ss` in the viewer's timezone; empty for unparseable input. */
+export function formatLocalDateTime(value: string | number | Date): string {
+  const date = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(date.getTime())) return '';
+  return LOCAL_DATE_TIME_FORMATTER.format(date).replace(',', '');
+}

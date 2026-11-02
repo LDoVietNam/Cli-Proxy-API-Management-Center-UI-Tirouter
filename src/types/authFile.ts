@@ -12,6 +12,8 @@ export type AuthFileType =
   | 'aistudio'
   | 'claude'
   | 'codex'
+  | 'devin'
+  | 'meta'
   | 'antigravity'
   | 'xai'
   | 'iflow'

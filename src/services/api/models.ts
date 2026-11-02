@@ -419,16 +419,15 @@ export const modelsApi = {
   },
 
   /**
-   * Test a specific model with a chat completion request
+   * Probe a model through the gateway's own /v1 surface, so the result reflects
+   * the same credential selection and translation a real client gets.
    */
   async testModel(request: {
     model: string;
     provider: string;
-    auth_index?: string;
     message?: string;
     max_tokens?: number;
     temperature?: number;
-    headers?: Record<string, string>;
   }): Promise<{
     ok: boolean;
     model: string;

@@ -21,13 +21,20 @@ import { DEFAULT_VISUAL_VALUES } from '@/types/visualConfig';
 const INDEX_FIELD_IDS = CONFIG_FIELD_SEARCH_INDEX.map((entry) => entry.fieldId);
 const INDEX_FIELD_ID_SET = new Set(INDEX_FIELD_IDS);
 
-/** VisualConfigValues 的叶值键：顶层标量 + streaming 展开为点号叶（= dirtyFields 的键域）。 */
+/** VisualConfigValues 的叶值键：标量、数组与空记录按自身计，嵌套分组展开为点号叶（= dirtyFields 的键域）。 */
 const LEAF_VALUE_KEYS = new Set(
-  Object.keys(DEFAULT_VISUAL_VALUES).flatMap((key) =>
-    key === 'streaming'
-      ? Object.keys(DEFAULT_VISUAL_VALUES.streaming).map((leaf) => `streaming.${leaf}`)
-      : [key]
-  )
+  Object.entries(DEFAULT_VISUAL_VALUES).flatMap(([key, value]) => {
+    const flatten = (node: unknown, path: string): string[] => {
+      if (node && typeof node === 'object' && !Array.isArray(node)) {
+        const entries = Object.entries(node as Record<string, unknown>);
+        // 空对象代表未建模的记录型字段，整体计为一个叶键。
+        if (entries.length === 0) return [path];
+        return entries.flatMap(([childKey, child]) => flatten(child, `${path}.${childKey}`));
+      }
+      return [path];
+    };
+    return flatten(value, key);
+  })
 );
 
 const sorted = (values: Iterable<string>) => [...values].sort();

@@ -60,6 +60,7 @@ export interface RTKConfig {
   enabled: boolean;
   binary: string;
   'ultra-mode': boolean;
+  'pool-size'?: string;
   timeout?: string;
 }
 
@@ -94,11 +95,26 @@ export interface PromptMatch {
   [key: string]: any;
 }
 
-export interface PromptPreset {
+/**
+ * One model entry of a preset. The backend models this as an object
+ * (config.PromptModelRule): the pattern lives in `name`, and the match
+ * conditions belong to the rule, not to the preset.
+ */
+export interface PromptModelRule {
   name: string;
-  models: string[];
+  protocol?: string;
+  'from-protocol'?: string;
+  headers?: Record<string, string>;
   match?: PromptMatch[];
   'not-match'?: PromptMatch[];
+  exist?: string[];
+  'not-exist'?: string[];
+}
+
+export interface PromptPreset {
+  name: string;
+  priority?: number;
+  models: PromptModelRule[];
   inject: PromptInject;
 }
 
@@ -106,18 +122,4 @@ export interface PromptsConfig {
   enabled: boolean;
   presets: PromptPreset[];
   default: PromptInject;
-}
-
-// Routing Test types
-export interface RoutingTestRequest {
-  endpoint: string;
-  headers?: Record<string, string>;
-}
-
-export interface RoutingTestResponse {
-  ok: boolean;
-  status?: number;
-  error?: string;
-  latency: string;
-  endpoint: string;
 }

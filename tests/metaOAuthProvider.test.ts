@@ -59,9 +59,10 @@ describe('Muse (Meta) provider and device OAuth', () => {
     expect(groups.find((group) => group.id === 'gpt')?.items).toHaveLength(1);
   });
 
-  test('registers device-code UI but not a manual OAuth callback', () => {
+  test('keeps device-code UI and leaves Muse to plugins (no built-in card or callback)', () => {
     const source = readFileSync('src/pages/OAuthPage.tsx', 'utf8');
-    expect(source).toContain("id: 'meta'");
+    // This backend has no meta-auth-url route; Muse arrives only through a plugin.
+    expect(source).not.toContain("id: 'meta'");
     expect(source).toContain('userCode: res.user_code');
     expect(source).toContain("t('auth_login.device_code_copy')");
     const callbackProviders = source.match(

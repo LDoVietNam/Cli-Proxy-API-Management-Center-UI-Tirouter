@@ -12,7 +12,15 @@ import { XAI_CONFIG } from './providers/xai/data';
 import { DEVIN_CONFIG } from './providers/devin/data';
 import { META_CONFIG } from './providers/meta/data';
 import type { QuotaProviderType } from './providers/types';
-import { QUOTA_TAB_ORDER, type QuotaTabId } from './constants';
+import { QUOTA_TAB_ORDER, type QuotaSortMode, type QuotaTabId } from './constants';
+
+const ZERO_FILLED_TABS: readonly QuotaProviderType[] = [
+  'claude',
+  'antigravity',
+  'codex',
+  'xai',
+  'kimi',
+];
 
 const QUOTA_FILTER_MAP: Record<QuotaProviderType, (file: AuthFileItem) => boolean> = {
   antigravity: ANTIGRAVITY_CONFIG.filterFn,
@@ -53,13 +61,55 @@ export function filterEntriesByTab(entries: QuotaFileEntry[], tab: QuotaTabId): 
   return entries.filter((entry) => entry.type === tab);
 }
 
+/** Search public account identifiers only; account may contain an API key. */
+export function filterEntriesBySearch(entries: QuotaFileEntry[], search: string): QuotaFileEntry[] {
+  const query = search.trim().toLowerCase();
+  if (!query) return entries;
+  return entries.filter(({ file }) =>
+    [file.name, file.email].some(
+      (value) => typeof value === 'string' && value.toLowerCase().includes(query)
+    )
+  );
+}
+
+/**
+ * Order the grid by whichever credential recovers first.
+ *
+ * The instant is injected rather than read here: quota lives in the store and
+ * arrives asynchronously, and keeping this function store-free is what makes
+ * the ordering rules directly testable.
+ *
+ * Credentials with no instant sink to the bottom and keep their incoming
+ * provider-grouped order, so the unloaded tail still reads like the default
+ * view. The original index is the final tiebreak.
+ */
+export function sortQuotaEntries(
+  entries: QuotaFileEntry[],
+  mode: QuotaSortMode,
+  resolveNextRecoveryMs: (entry: QuotaFileEntry) => number | null
+): QuotaFileEntry[] {
+  if (mode !== 'soonest') return [...entries];
+
+  return entries
+    .map((entry, index) => ({ entry, index, atMs: resolveNextRecoveryMs(entry) }))
+    .sort((a, b) => {
+      if (a.atMs === null && b.atMs === null) return a.index - b.index;
+      if (a.atMs === null) return 1;
+      if (b.atMs === null) return -1;
+      return a.atMs - b.atMs || a.index - b.index;
+    })
+    .map((decorated) => decorated.entry);
+}
+
 export function buildTabCounts(entries: QuotaFileEntry[]): Record<string, number> {
   const counts: Record<string, number> = { all: entries.length };
-  for (const type of QUOTA_TAB_ORDER) {
+  // Only the original providers keep an always-visible tab; Devin and Muse
+  // appear once at least one credential is classified under them.
+  for (const type of ZERO_FILLED_TABS) {
     counts[type] = 0;
   }
   for (const entry of entries) {
-    counts[entry.type] += 1;
+    counts[entry.type] = (counts[entry.type] ?? 0) + 1;
   }
   return counts;
 }

@@ -69,7 +69,11 @@ vi.mock('react-i18next', () => ({
 const mockUseAuthStore = useAuthStore as unknown as ReturnType<typeof vi.fn>;
 const mockUseNotificationStore = useNotificationStore as unknown as ReturnType<typeof vi.fn>;
 const mockUseThemeStore = useThemeStore as unknown as ReturnType<typeof vi.fn>;
-const mockOauthApi = oauthApi as unknown as { startAuth: ReturnType<typeof vi.fn>; getAuthStatus: ReturnType<typeof vi.fn>; submitCallback: ReturnType<typeof vi.fn> };
+const mockOauthApi = oauthApi as unknown as {
+  startAuth: ReturnType<typeof vi.fn>;
+  getAuthStatus: ReturnType<typeof vi.fn>;
+  submitCallback: ReturnType<typeof vi.fn>;
+};
 const mockPluginsApi = pluginsApi as unknown as { list: ReturnType<typeof vi.fn> };
 const mockVertexApi = vertexApi as unknown as { importCredential: ReturnType<typeof vi.fn> };
 const mockNotifyAuthFilesChanged = notifyAuthFilesChanged as ReturnType<typeof vi.fn>;
@@ -86,47 +90,6 @@ const createStoreMock = <T,>(state: T) => {
     }
     return state;
   });
-};
-
-// i18n keys referenced by tests (returned verbatim by the t() mock)
-const auth_login = {
-  anthropic_oauth_button: 'auth_login.anthropic_oauth_button',
-  anthropic_oauth_title: 'auth_login.anthropic_oauth_title',
-  antigravity_oauth_title: 'auth_login.antigravity_oauth_title',
-  codex_oauth_button: 'auth_login.codex_oauth_button',
-  codex_oauth_title: 'auth_login.codex_oauth_title',
-  cohere_oauth_button: 'auth_login.cohere_oauth_button',
-  cohere_oauth_hint: 'auth_login.cohere_oauth_hint',
-  cohere_oauth_title: 'auth_login.cohere_oauth_title',
-  copy_link: 'auth_login.copy_link',
-  devin_oauth_title: 'auth_login.devin_oauth_title',
-  freebuff_oauth_title: 'auth_login.freebuff_oauth_title',
-  google_oauth_title: 'auth_login.google_oauth_title',
-  huggingface_oauth_button: 'auth_login.huggingface_oauth_button',
-  huggingface_oauth_hint: 'auth_login.huggingface_oauth_hint',
-  huggingface_oauth_title: 'auth_login.huggingface_oauth_title',
-  kilo_oauth_button: 'auth_login.kilo_oauth_button',
-  kilo_oauth_title: 'auth_login.kilo_oauth_title',
-  kimi_oauth_button: 'auth_login.kimi_oauth_button',
-  kimi_oauth_title: 'auth_login.kimi_oauth_title',
-  kimi_sign_up_button: 'auth_login.kimi_sign_up_button',
-  missing_state: 'auth_login.missing_state',
-  mistral_oauth_button: 'auth_login.mistral_oauth_button',
-  mistral_oauth_hint: 'auth_login.mistral_oauth_hint',
-  mistral_oauth_title: 'auth_login.mistral_oauth_title',
-  oauth_callback_button: 'auth_login.oauth_callback_button',
-  oauth_callback_hint: 'auth_login.oauth_callback_hint',
-  oauth_callback_status_error: 'auth_login.oauth_callback_status_error',
-  oauth_callback_status_success: 'auth_login.oauth_callback_status_success',
-  oauth_status_error: 'auth_login.oauth_status_error',
-  oauth_status_success: 'auth_login.oauth_status_success',
-  oauth_status_waiting: 'auth_login.oauth_status_waiting',
-  open_link: 'auth_login.open_link',
-  plugin_oauth_button: 'auth_login.plugin_oauth_button',
-  plugin_oauth_title: 'auth_login.plugin_oauth_title',
-  view_auth_files: 'auth_login.view_auth_files',
-  xai_oauth_button: 'auth_login.xai_oauth_button',
-  xai_oauth_title: 'auth_login.xai_oauth_title',
 };
 
 const vertex_import = {
@@ -183,44 +146,52 @@ describe('OAuthPage', () => {
     vi.useRealTimers();
   });
 
-  describe('Provider Card Rendering Tests', () => {
-    test('renders all OAuth provider cards including new ones (Mistral, Cohere, HuggingFace)', () => {
+  describe('Provider Card Rendering', () => {
+    test('renders the five providers backed by a server auth-url route', () => {
       renderOAuthPage();
 
-      // Check all providers are rendered using translation keys
       expect(screen.getByText('auth_login.kimi_oauth_title')).toBeInTheDocument();
       expect(screen.getByText('auth_login.codex_oauth_title')).toBeInTheDocument();
       expect(screen.getByText('auth_login.anthropic_oauth_title')).toBeInTheDocument();
       expect(screen.getByText('auth_login.antigravity_oauth_title')).toBeInTheDocument();
       expect(screen.getByText('auth_login.xai_oauth_title')).toBeInTheDocument();
-      expect(screen.getByText('auth_login.kilo_oauth_title')).toBeInTheDocument();
-      expect(screen.getByText('auth_login.devin_oauth_title')).toBeInTheDocument();
-      expect(screen.getByText('auth_login.freebuff_oauth_title')).toBeInTheDocument();
-      expect(screen.getByText('auth_login.google_oauth_title')).toBeInTheDocument();
-      // New providers
-      expect(screen.getByText('auth_login.mistral_oauth_title')).toBeInTheDocument();
-      expect(screen.getByText('auth_login.cohere_oauth_title')).toBeInTheDocument();
-      expect(screen.getByText('auth_login.huggingface_oauth_title')).toBeInTheDocument();
+    });
+
+    test('hides providers that have no server route and no plugin', () => {
+      renderOAuthPage();
+
+      // These providers exist only in the upstream panel; this backend has no
+      // <provider>-auth-url route for them and no plugin declares them, so
+      // rendering their buttons produced a 404 on every click.
+      for (const titleKey of [
+        'auth_login.kilo_oauth_title',
+        'auth_login.meta_oauth_title',
+        'auth_login.devin_oauth_title',
+        'auth_login.freebuff_oauth_title',
+        'auth_login.google_oauth_title',
+        'auth_login.mistral_oauth_title',
+        'auth_login.cohere_oauth_title',
+        'auth_login.huggingface_oauth_title',
+      ]) {
+        expect(screen.queryByText(titleKey)).not.toBeInTheDocument();
+      }
     });
 
     test('each provider card has correct button and hint text', () => {
       renderOAuthPage();
 
-      // Check button labels for new providers (translation keys)
-      expect(screen.getByText('auth_login.mistral_oauth_button')).toBeInTheDocument();
-      expect(screen.getByText('auth_login.cohere_oauth_button')).toBeInTheDocument();
-      expect(screen.getByText('auth_login.huggingface_oauth_button')).toBeInTheDocument();
+      expect(screen.getByText('auth_login.anthropic_oauth_button')).toBeInTheDocument();
+      expect(screen.getByText('auth_login.codex_oauth_button')).toBeInTheDocument();
+      expect(screen.getByText('auth_login.xai_oauth_button')).toBeInTheDocument();
 
-      // Check hint texts for new providers (translation keys)
-      expect(screen.getByText('auth_login.mistral_oauth_hint')).toBeInTheDocument();
-      expect(screen.getByText('auth_login.cohere_oauth_hint')).toBeInTheDocument();
-      expect(screen.getByText('auth_login.huggingface_oauth_hint')).toBeInTheDocument();
+      expect(screen.getByText('auth_login.anthropic_oauth_hint')).toBeInTheDocument();
+      expect(screen.getByText('auth_login.codex_oauth_hint')).toBeInTheDocument();
+      expect(screen.getByText('auth_login.xai_oauth_hint')).toBeInTheDocument();
     });
 
     test('featured provider (kimi) is rendered with sign up button', () => {
       renderOAuthPage();
 
-      // Kimi should have a special sign up button
       expect(screen.getByText('auth_login.kimi_sign_up_button')).toBeInTheDocument();
       expect(screen.getByText('auth_login.kimi_oauth_button')).toBeInTheDocument();
     });
@@ -230,39 +201,29 @@ describe('OAuthPage', () => {
     test('clicking OAuth button calls oauthApi.startAuth with correct provider id', async () => {
       renderOAuthPage();
 
-      const mistralButton = screen.getByText('auth_login.mistral_oauth_button');
-      await user.click(mistralButton);
+      const anthropicButton = screen.getByText('auth_login.anthropic_oauth_button');
+      await user.click(anthropicButton);
 
-      expect(mockOauthApi.startAuth).toHaveBeenCalledWith('mistral');
+      expect(mockOauthApi.startAuth).toHaveBeenCalledWith('anthropic');
     });
 
-    test('clicking OAuth button for Cohere calls startAuth with cohere id', async () => {
+    test('clicking xAI button calls startAuth with xai id', async () => {
       renderOAuthPage();
 
-      const cohereButton = screen.getByText('auth_login.cohere_oauth_button');
-      await user.click(cohereButton);
+      const xaiButton = screen.getByText('auth_login.xai_oauth_button');
+      await user.click(xaiButton);
 
-      expect(mockOauthApi.startAuth).toHaveBeenCalledWith('cohere');
-    });
-
-    test('clicking OAuth button for HuggingFace calls startAuth with huggingface id', async () => {
-      renderOAuthPage();
-
-      const hfButton = screen.getByText('auth_login.huggingface_oauth_button');
-      await user.click(hfButton);
-
-      expect(mockOauthApi.startAuth).toHaveBeenCalledWith('huggingface');
+      expect(mockOauthApi.startAuth).toHaveBeenCalledWith('xai');
     });
 
     test('sets provider state to waiting and shows auth URL after successful startAuth', async () => {
       renderOAuthPage();
 
-      const mistralButton = screen.getByText('auth_login.mistral_oauth_button');
-      await user.click(mistralButton);
+      const anthropicButton = screen.getByText('auth_login.anthropic_oauth_button');
+      await user.click(anthropicButton);
 
-      // Should show waiting status and auth URL
       await waitFor(() => {
-        expect(screen.getByText('auth_login.mistral_oauth_status_waiting')).toBeInTheDocument();
+        expect(screen.getByText('auth_login.anthropic_oauth_status_waiting')).toBeInTheDocument();
       });
 
       await waitFor(() => {
@@ -271,18 +232,17 @@ describe('OAuthPage', () => {
     });
 
     test('shows error notification when startAuth fails', async () => {
-      const errorMessage = 'Network error';
-      mockOauthApi.startAuth.mockRejectedValueOnce(new Error(errorMessage));
+      mockOauthApi.startAuth.mockRejectedValueOnce(new Error('Network error'));
 
       renderOAuthPage();
 
-      const mistralButton = screen.getByText('auth_login.mistral_oauth_button');
-      await user.click(mistralButton);
+      const anthropicButton = screen.getByText('auth_login.anthropic_oauth_button');
+      await user.click(anthropicButton);
 
       await waitFor(() => {
         const { showNotification } = mockUseNotificationStore.mock.results[0].value;
         expect(showNotification).toHaveBeenCalledWith(
-          expect.stringContaining('auth_login.mistral_oauth_start_error Network error'),
+          expect.stringContaining('auth_login.anthropic_oauth_start_error Network error'),
           'error'
         );
       });
@@ -293,8 +253,8 @@ describe('OAuthPage', () => {
 
       renderOAuthPage();
 
-      const mistralButton = screen.getByText('auth_login.mistral_oauth_button');
-      await user.click(mistralButton);
+      const anthropicButton = screen.getByText('auth_login.anthropic_oauth_button');
+      await user.click(anthropicButton);
 
       await waitFor(() => {
         expect(
@@ -308,10 +268,9 @@ describe('OAuthPage', () => {
     test('polling checks auth status every 3 seconds', async () => {
       renderOAuthPage();
 
-      const mistralButton = screen.getByText('auth_login.mistral_oauth_button');
-      await user.click(mistralButton);
+      const anthropicButton = screen.getByText('auth_login.anthropic_oauth_button');
+      await user.click(anthropicButton);
 
-      // Fast-forward time by 3 seconds
       await act(async () => {
         vi.advanceTimersByTime(3000);
       });
@@ -327,25 +286,23 @@ describe('OAuthPage', () => {
 
       renderOAuthPage();
 
-      const mistralButton = screen.getByText('auth_login.mistral_oauth_button');
-      await user.click(mistralButton);
+      const anthropicButton = screen.getByText('auth_login.anthropic_oauth_button');
+      await user.click(anthropicButton);
 
-      // First poll - wait
       await act(async () => {
         vi.advanceTimersByTime(3000);
       });
 
-      // Second poll - ok
       await act(async () => {
         vi.advanceTimersByTime(3000);
       });
 
       await waitFor(() => {
-        expect(screen.getByText('auth_login.mistral_oauth_status_success')).toBeInTheDocument();
+        expect(screen.getByText('auth_login.anthropic_oauth_status_success')).toBeInTheDocument();
       });
 
       const { showNotification } = mockUseNotificationStore.mock.results[0].value;
-      expect(showNotification).toHaveBeenCalledWith('auth_login.mistral_oauth_status_success', 'success');
+      expect(showNotification).toHaveBeenCalledWith('auth_login.anthropic_oauth_status_success', 'success');
       expect(mockNotifyAuthFilesChanged).toHaveBeenCalled();
     });
 
@@ -356,26 +313,24 @@ describe('OAuthPage', () => {
 
       renderOAuthPage();
 
-      const mistralButton = screen.getByText('auth_login.mistral_oauth_button');
-      await user.click(mistralButton);
+      const anthropicButton = screen.getByText('auth_login.anthropic_oauth_button');
+      await user.click(anthropicButton);
 
-      // First poll - wait
       await act(async () => {
         vi.advanceTimersByTime(3000);
       });
 
-      // Second poll - error
       await act(async () => {
         vi.advanceTimersByTime(3000);
       });
 
       await waitFor(() => {
-        expect(screen.getByText('auth_login.mistral_oauth_status_error Auth denied')).toBeInTheDocument();
+        expect(screen.getByText('auth_login.anthropic_oauth_status_error Auth denied')).toBeInTheDocument();
       });
 
       const { showNotification } = mockUseNotificationStore.mock.results[0].value;
       expect(showNotification).toHaveBeenCalledWith(
-        expect.stringContaining('auth_login.mistral_oauth_status_error Auth denied'),
+        expect.stringContaining('auth_login.anthropic_oauth_status_error Auth denied'),
         'error'
       );
     });
@@ -387,144 +342,133 @@ describe('OAuthPage', () => {
 
       renderOAuthPage();
 
-      const mistralButton = screen.getByText('auth_login.mistral_oauth_button');
-      await user.click(mistralButton);
+      const anthropicButton = screen.getByText('auth_login.anthropic_oauth_button');
+      await user.click(anthropicButton);
 
-      // First poll - wait
       await act(async () => {
         vi.advanceTimersByTime(3000);
       });
 
-      // Second poll - network error
       await act(async () => {
         vi.advanceTimersByTime(3000);
       });
 
       await waitFor(() => {
-        expect(screen.getByText('auth_login.mistral_oauth_status_error Network error')).toBeInTheDocument();
+        expect(screen.getByText('auth_login.anthropic_oauth_status_error Network error')).toBeInTheDocument();
       });
     });
   });
 
   describe('Callback Tests', () => {
-    test('callback input is shown for providers in CALLBACK_SUPPORTED (mistral, huggingface)', async () => {
+    test('callback input is shown for anthropic (PKCE flow)', async () => {
       renderOAuthPage();
 
-      // Start auth for mistral
-      const mistralButton = screen.getByText('auth_login.mistral_oauth_button');
-      await user.click(mistralButton);
+      const anthropicButton = screen.getByText('auth_login.anthropic_oauth_button');
+      await user.click(anthropicButton);
 
       await waitFor(() => {
         expect(screen.getByText('https://auth.example.com')).toBeInTheDocument();
       });
 
-      // Callback input should be visible for mistral
       expect(screen.getByLabelText('auth_login.oauth_callback_label')).toBeInTheDocument();
       expect(screen.getByPlaceholderText('auth_login.oauth_callback_placeholder')).toBeInTheDocument();
     });
 
-    test('callback input is shown for huggingface', async () => {
+    test('callback input is shown for codex', async () => {
       renderOAuthPage();
 
-      const hfButton = screen.getByText('auth_login.huggingface_oauth_button');
-      await user.click(hfButton);
+      const codexButton = screen.getByText('auth_login.codex_oauth_button');
+      await user.click(codexButton);
 
       await waitFor(() => {
         expect(screen.getByText('https://auth.example.com')).toBeInTheDocument();
       });
 
-      // Callback input should be visible for huggingface
       expect(screen.getByLabelText('auth_login.oauth_callback_label')).toBeInTheDocument();
     });
 
-    test('callback input is NOT shown for cohere (device flow)', async () => {
+    test('callback input is NOT shown for kimi (device flow)', async () => {
       renderOAuthPage();
 
-      const cohereButton = screen.getByText('auth_login.cohere_oauth_button');
-      await user.click(cohereButton);
+      const kimiButton = screen.getByText('auth_login.kimi_oauth_button');
+      await user.click(kimiButton);
 
       await waitFor(() => {
         expect(screen.getByText('https://auth.example.com')).toBeInTheDocument();
       });
 
-      // Callback input should NOT be visible for cohere
       expect(screen.queryByLabelText('auth_login.oauth_callback_label')).not.toBeInTheDocument();
     });
 
-    test('callback input is NOT shown for kilo (device flow)', async () => {
+    test('xAI shows the dedicated code callback input', async () => {
       renderOAuthPage();
 
-      const kiloButton = screen.getByText('auth_login.kilo_oauth_button');
-      await user.click(kiloButton);
+      const xaiButton = screen.getByText('auth_login.xai_oauth_button');
+      await user.click(xaiButton);
 
       await waitFor(() => {
         expect(screen.getByText('https://auth.example.com')).toBeInTheDocument();
       });
 
-      expect(screen.queryByLabelText('auth_login.oauth_callback_label')).not.toBeInTheDocument();
+      expect(screen.getByLabelText('auth_login.xai_callback_label')).toBeInTheDocument();
+      expect(screen.getByPlaceholderText('auth_login.xai_callback_placeholder')).toBeInTheDocument();
     });
 
     test('submitting callback calls oauthApi.submitCallback with correct parameters', async () => {
       renderOAuthPage();
 
-      const mistralButton = screen.getByText('auth_login.mistral_oauth_button');
-      await user.click(mistralButton);
+      const anthropicButton = screen.getByText('auth_login.anthropic_oauth_button');
+      await user.click(anthropicButton);
 
       await waitFor(() => {
         expect(screen.getByText('https://auth.example.com')).toBeInTheDocument();
       });
 
-      // Fill in callback URL
       const callbackInput = screen.getByLabelText('auth_login.oauth_callback_label');
-      const testCallbackUrl = 'http://localhost:1455/auth/callback?code=test-code&state=test-state-123';
+      const testCallbackUrl = 'http://localhost:54545/callback?code=test-code&state=test-state-123';
       await user.type(callbackInput, testCallbackUrl);
 
-      // Click submit callback button
       const submitButton = screen.getByText('auth_login.oauth_callback_button');
       await user.click(submitButton);
 
-      expect(mockOauthApi.submitCallback).toHaveBeenCalledWith('mistral', testCallbackUrl);
+      expect(mockOauthApi.submitCallback).toHaveBeenCalledWith('anthropic', testCallbackUrl);
     });
 
     test('empty callback shows warning notification', async () => {
       renderOAuthPage();
 
-      const mistralButton = screen.getByText('auth_login.mistral_oauth_button');
-      await user.click(mistralButton);
+      const anthropicButton = screen.getByText('auth_login.anthropic_oauth_button');
+      await user.click(anthropicButton);
 
       await waitFor(() => {
         expect(screen.getByText('https://auth.example.com')).toBeInTheDocument();
       });
 
-      // Click submit without entering callback
       const submitButton = screen.getByText('auth_login.oauth_callback_button');
       await user.click(submitButton);
 
       const { showNotification } = mockUseNotificationStore.mock.results[0].value;
-      expect(showNotification).toHaveBeenCalledWith(
-        'auth_login.oauth_callback_required',
-        'warning'
-      );
+      expect(showNotification).toHaveBeenCalledWith('auth_login.oauth_callback_required', 'warning');
     });
 
     test('shows success status when callback submission succeeds', async () => {
       renderOAuthPage();
 
-      const mistralButton = screen.getByText('auth_login.mistral_oauth_button');
-      await user.click(mistralButton);
+      const anthropicButton = screen.getByText('auth_login.anthropic_oauth_button');
+      await user.click(anthropicButton);
 
       await waitFor(() => {
         expect(screen.getByText('https://auth.example.com')).toBeInTheDocument();
       });
 
       const callbackInput = screen.getByLabelText('auth_login.oauth_callback_label');
-      await user.type(callbackInput, 'http://localhost:1455/auth/callback?code=test&state=test-state-123');
+      await user.type(callbackInput, 'http://localhost:54545/callback?code=test&state=test-state-123');
 
       const submitButton = screen.getByText('auth_login.oauth_callback_button');
       await user.click(submitButton);
 
       await waitFor(() => {
-        expect(screen.getByText(auth_login.oauth_callback_status_success)).toBeInTheDocument();
+        expect(screen.getByText('auth_login.oauth_callback_status_success')).toBeInTheDocument();
       });
 
       const { showNotification } = mockUseNotificationStore.mock.results[0].value;
@@ -536,15 +480,15 @@ describe('OAuthPage', () => {
 
       renderOAuthPage();
 
-      const mistralButton = screen.getByText('auth_login.mistral_oauth_button');
-      await user.click(mistralButton);
+      const anthropicButton = screen.getByText('auth_login.anthropic_oauth_button');
+      await user.click(anthropicButton);
 
       await waitFor(() => {
         expect(screen.getByText('https://auth.example.com')).toBeInTheDocument();
       });
 
       const callbackInput = screen.getByLabelText('auth_login.oauth_callback_label');
-      await user.type(callbackInput, 'http://localhost:1455/auth/callback?code=test&state=test-state-123');
+      await user.type(callbackInput, 'http://localhost:54545/callback?code=test&state=test-state-123');
 
       const submitButton = screen.getByText('auth_login.oauth_callback_button');
       await user.click(submitButton);
@@ -563,113 +507,8 @@ describe('OAuthPage', () => {
     });
   });
 
-  describe('New Provider Specific Tests', () => {
-    test('Mistral provider supports callback (PKCE flow)', async () => {
-      renderOAuthPage();
-
-      const mistralButton = screen.getByText('auth_login.mistral_oauth_button');
-      await user.click(mistralButton);
-
-      await waitFor(() => {
-        expect(screen.getByText('https://auth.example.com')).toBeInTheDocument();
-      });
-
-      // Mistral should have callback input (it's in CALLBACK_SUPPORTED)
-      expect(screen.getByLabelText('auth_login.oauth_callback_label')).toBeInTheDocument();
-      expect(screen.getByText(auth_login.oauth_callback_hint)).toBeInTheDocument();
-    });
-
-    test('Cohere provider does NOT show callback input (device flow)', async () => {
-      renderOAuthPage();
-
-      const cohereButton = screen.getByText('auth_login.cohere_oauth_button');
-      await user.click(cohereButton);
-
-      await waitFor(() => {
-        expect(screen.getByText('https://auth.example.com')).toBeInTheDocument();
-      });
-
-      // Cohere should NOT have callback input (it's NOT in CALLBACK_SUPPORTED)
-      expect(screen.queryByLabelText('auth_login.oauth_callback_label')).not.toBeInTheDocument();
-    });
-
-    test('HuggingFace provider supports callback (PKCE flow)', async () => {
-      renderOAuthPage();
-
-      const hfButton = screen.getByText('auth_login.huggingface_oauth_button');
-      await user.click(hfButton);
-
-      await waitFor(() => {
-        expect(screen.getByText('https://auth.example.com')).toBeInTheDocument();
-      });
-
-      // HuggingFace should have callback input (it's in CALLBACK_SUPPORTED)
-      expect(screen.getByLabelText('auth_login.oauth_callback_label')).toBeInTheDocument();
-    });
-
-    test('All new providers have correct titles and hints', () => {
-      renderOAuthPage();
-
-      // Mistral
-      expect(screen.getByText('auth_login.mistral_oauth_title')).toBeInTheDocument();
-      expect(screen.getByText(auth_login.mistral_oauth_hint)).toBeInTheDocument();
-
-      // Cohere
-      expect(screen.getByText('auth_login.cohere_oauth_title')).toBeInTheDocument();
-      expect(screen.getByText(auth_login.cohere_oauth_hint)).toBeInTheDocument();
-
-      // HuggingFace
-      expect(screen.getByText('auth_login.huggingface_oauth_title')).toBeInTheDocument();
-      expect(screen.getByText(auth_login.huggingface_oauth_hint)).toBeInTheDocument();
-    });
-
-    test('All new providers have correct button labels', () => {
-      renderOAuthPage();
-
-      expect(screen.getByText('auth_login.mistral_oauth_button')).toBeInTheDocument();
-      expect(screen.getByText('auth_login.cohere_oauth_button')).toBeInTheDocument();
-      expect(screen.getByText('auth_login.huggingface_oauth_button')).toBeInTheDocument();
-    });
-  });
-
-  describe('Featured Kimi Provider Tests', () => {
-    test('Kimi provider shows sign up button and OAuth button', () => {
-      renderOAuthPage();
-
-      expect(screen.getByText('auth_login.kimi_sign_up_button')).toBeInTheDocument();
-      expect(screen.getByText('auth_login.kimi_oauth_button')).toBeInTheDocument();
-    });
-
-    test('Kimi auth flow works correctly (device flow, no callback input)', async () => {
-      renderOAuthPage();
-
-      const kimiButton = screen.getByText('auth_login.kimi_oauth_button');
-      await user.click(kimiButton);
-
-      await waitFor(() => {
-        expect(screen.getByText('https://auth.example.com')).toBeInTheDocument();
-      });
-
-      // Kimi is NOT in CALLBACK_SUPPORTED — device flow, no callback input
-      expect(screen.queryByLabelText('auth_login.oauth_callback_label')).not.toBeInTheDocument();
-    });
-  });
-
-  describe('Other Built-in Providers', () => {
-    test('Codex provider shows callback input', async () => {
-      renderOAuthPage();
-
-      const codexButton = screen.getByText('auth_login.codex_oauth_button');
-      await user.click(codexButton);
-
-      await waitFor(() => {
-        expect(screen.getByText('https://auth.example.com')).toBeInTheDocument();
-      });
-
-      expect(screen.getByLabelText('auth_login.oauth_callback_label')).toBeInTheDocument();
-    });
-
-    test('Anthropic provider shows callback input', async () => {
+  describe('Copy and Open Link Actions', () => {
+    test('copy link button copies URL to clipboard', async () => {
       renderOAuthPage();
 
       const anthropicButton = screen.getByText('auth_login.anthropic_oauth_button');
@@ -679,37 +518,7 @@ describe('OAuthPage', () => {
         expect(screen.getByText('https://auth.example.com')).toBeInTheDocument();
       });
 
-      expect(screen.getByLabelText('auth_login.oauth_callback_label')).toBeInTheDocument();
-    });
-
-    test('xAI provider shows special callback input with code placeholder', async () => {
-      renderOAuthPage();
-
-      const xaiButton = screen.getByText('auth_login.xai_oauth_button');
-      await user.click(xaiButton);
-
-      await waitFor(() => {
-        expect(screen.getByText('https://auth.example.com')).toBeInTheDocument();
-      });
-
-      // xAI has special callback label and placeholder
-      expect(screen.getByLabelText('auth_login.xai_callback_label')).toBeInTheDocument();
-      expect(screen.getByPlaceholderText('auth_login.xai_callback_placeholder')).toBeInTheDocument();
-    });
-  });
-
-  describe('Copy and Open Link Actions', () => {
-    test('copy link button copies URL to clipboard', async () => {
-      renderOAuthPage();
-
-      const mistralButton = screen.getByText('auth_login.mistral_oauth_button');
-      await user.click(mistralButton);
-
-      await waitFor(() => {
-        expect(screen.getByText('https://auth.example.com')).toBeInTheDocument();
-      });
-
-      const copyButton = screen.getByText('auth_login.mistral_copy_link');
+      const copyButton = screen.getByText('auth_login.anthropic_copy_link');
       await user.click(copyButton);
 
       const { copyToClipboard } = await import('@/utils/clipboard');
@@ -717,17 +526,16 @@ describe('OAuthPage', () => {
     });
 
     test('open link button opens URL in new tab', async () => {
-      // window.open is already mocked in setup.ts
       renderOAuthPage();
 
-      const mistralButton = screen.getByText('auth_login.mistral_oauth_button');
-      await user.click(mistralButton);
+      const anthropicButton = screen.getByText('auth_login.anthropic_oauth_button');
+      await user.click(anthropicButton);
 
       await waitFor(() => {
         expect(screen.getByText('https://auth.example.com')).toBeInTheDocument();
       });
 
-      const openButton = screen.getByText('auth_login.mistral_open_link');
+      const openButton = screen.getByText('auth_login.anthropic_open_link');
       await user.click(openButton);
 
       expect(window.open).toHaveBeenCalledWith('https://auth.example.com', '_blank', 'noopener,noreferrer');
@@ -742,15 +550,13 @@ describe('OAuthPage', () => {
 
       renderOAuthPage();
 
-      const mistralButton = screen.getByText('auth_login.mistral_oauth_button');
-      await user.click(mistralButton);
+      const anthropicButton = screen.getByText('auth_login.anthropic_oauth_button');
+      await user.click(anthropicButton);
 
-      // First poll
       await act(async () => {
         vi.advanceTimersByTime(3000);
       });
 
-      // Second poll - success
       await act(async () => {
         vi.advanceTimersByTime(3000);
       });
@@ -767,8 +573,8 @@ describe('OAuthPage', () => {
 
       renderOAuthPage();
 
-      const mistralButton = screen.getByText('auth_login.mistral_oauth_button');
-      await user.click(mistralButton);
+      const anthropicButton = screen.getByText('auth_login.anthropic_oauth_button');
+      await user.click(anthropicButton);
 
       await act(async () => {
         vi.advanceTimersByTime(3000);
@@ -838,7 +644,6 @@ describe('OAuthPage', () => {
         expect(screen.getByText('https://auth.example.com')).toBeInTheDocument();
       });
 
-      // Plugin providers should have callback input
       expect(screen.getByLabelText('auth_login.oauth_callback_label')).toBeInTheDocument();
     });
   });
@@ -857,26 +662,24 @@ describe('OAuthPage', () => {
 
   describe('Error State Recovery', () => {
     test('allows retry after error by clicking button again', async () => {
-      // First attempt fails
       mockOauthApi.startAuth.mockRejectedValueOnce(new Error('Network error'));
 
       renderOAuthPage();
 
-      const mistralButton = screen.getByText('auth_login.mistral_oauth_button');
-      await user.click(mistralButton);
+      const anthropicButton = screen.getByText('auth_login.anthropic_oauth_button');
+      await user.click(anthropicButton);
 
       await waitFor(() => {
-        expect(screen.getByText('auth_login.mistral_oauth_status_error Network error')).toBeInTheDocument();
+        expect(screen.getByText('auth_login.anthropic_oauth_status_error Network error')).toBeInTheDocument();
       });
 
-      // Second attempt succeeds
       mockOauthApi.startAuth.mockResolvedValueOnce({ url: 'https://auth.example.com', state: 'new-state' });
 
-      await user.click(mistralButton);
+      await user.click(anthropicButton);
 
       await waitFor(() => {
         expect(screen.getByText('https://auth.example.com')).toBeInTheDocument();
-        expect(screen.getByText('auth_login.mistral_oauth_status_waiting')).toBeInTheDocument();
+        expect(screen.getByText('auth_login.anthropic_oauth_status_waiting')).toBeInTheDocument();
       });
     });
   });

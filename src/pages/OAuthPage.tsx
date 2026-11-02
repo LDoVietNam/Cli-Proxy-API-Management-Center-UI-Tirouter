@@ -22,17 +22,11 @@ import iconKimiDark from '@/assets/icons/kimi-dark.svg';
 import iconVertex from '@/assets/icons/vertex.svg';
 import iconGrok from '@/assets/icons/grok.svg';
 import iconGrokDark from '@/assets/icons/grok-dark.svg';
-import iconKilo from '@/assets/icons/kilo.svg';
-import iconDevin from '@/assets/icons/devin.svg';
-import iconFreebuff from '@/assets/icons/freebuff.svg';
-import iconGoogle from '@/assets/icons/google.svg';
-import iconMistral from '@/assets/icons/mistral.svg';
-import iconCohere from '@/assets/icons/cohere.svg';
-import iconHuggingFace from '@/assets/icons/huggingface.svg';
 
 interface ProviderState {
   url?: string;
   state?: string;
+  userCode?: string;
   status?: 'idle' | 'waiting' | 'success' | 'error';
   error?: string;
   polling?: boolean;
@@ -79,6 +73,10 @@ function getErrorStatus(error: unknown): number | undefined {
   return typeof error.status === 'number' ? error.status : undefined;
 }
 
+// Only providers with a built-in <provider>-auth-url route (see
+// internal/api/server_management.go) are listed here. Other OAuth providers
+// (kilo, devin, meta, freebuff, google, mistral, cohere, huggingface) are
+// served exclusively by plugins and appear as plugin cards when installed.
 const PROVIDERS: BuiltInOAuthProviderCard[] = [
   {
     kind: 'builtin',
@@ -110,52 +108,10 @@ const PROVIDERS: BuiltInOAuthProviderCard[] = [
     titleKey: 'auth_login.xai_oauth_title',
     icon: { light: iconGrok, dark: iconGrokDark },
   },
-  {
-    kind: 'builtin',
-    id: 'kilo',
-    titleKey: 'auth_login.kilo_oauth_title',
-    icon: iconKilo,
-  },
-  {
-    kind: 'builtin',
-    id: 'devin',
-    titleKey: 'auth_login.devin_oauth_title',
-    icon: iconDevin,
-  },
-  {
-    kind: 'builtin',
-    id: 'freebuff',
-    titleKey: 'auth_login.freebuff_oauth_title',
-    icon: iconFreebuff,
-  },
-  {
-    kind: 'builtin',
-    id: 'google',
-    titleKey: 'auth_login.google_oauth_title',
-    icon: iconGoogle,
-  },
-  {
-    kind: 'builtin',
-    id: 'mistral',
-    titleKey: 'auth_login.mistral_oauth_title',
-    icon: iconMistral,
-  },
-  {
-    kind: 'builtin',
-    id: 'cohere',
-    titleKey: 'auth_login.cohere_oauth_title',
-    icon: iconCohere,
-  },
-  {
-    kind: 'builtin',
-    id: 'huggingface',
-    titleKey: 'auth_login.huggingface_oauth_title',
-    icon: iconHuggingFace,
-  },
 ];
 
 const BUILTIN_PROVIDER_IDS = new Set<string>(PROVIDERS.map((provider) => provider.id));
-const CALLBACK_SUPPORTED = new Set<string>(['codex', 'anthropic', 'antigravity', 'xai', 'mistral', 'huggingface']);
+const CALLBACK_SUPPORTED = new Set<string>(['codex', 'anthropic', 'antigravity', 'xai']);
 const XAI_CALLBACK_URL = 'http://127.0.0.1:56121/callback';
 const KIMI_SIGN_UP_URL = 'https://www.kimi.com/code/?aff=cliproxyapi';
 const SUCCESS_RESET_DELAY_MS = 5000;
@@ -458,6 +414,7 @@ export function OAuthPage() {
     updateProviderState(provider, {
       url: undefined,
       state: undefined,
+      userCode: undefined,
       status: 'waiting',
       polling: true,
       error: undefined,
@@ -482,6 +439,7 @@ export function OAuthPage() {
       updateProviderState(provider, {
         url: res.url,
         state: res.state,
+        userCode: res.user_code,
         status: 'waiting',
         polling: true,
       });
@@ -688,6 +646,17 @@ export function OAuthPage() {
                   onClick={() => window.open(state.url, '_blank', 'noopener,noreferrer')}
                 >
                   {getProviderText(provider, 'open_link')}
+                </Button>
+              </div>
+            </div>
+          )}
+          {state.userCode && (
+            <div className={styles.authUrlBox}>
+              <div className={styles.authUrlLabel}>{t('auth_login.device_code_label')}</div>
+              <div className={styles.authUrlValue}>{state.userCode}</div>
+              <div className={styles.authUrlActions}>
+                <Button variant="secondary" size="sm" onClick={() => copyLink(state.userCode)}>
+                  {t('auth_login.device_code_copy')}
                 </Button>
               </div>
             </div>

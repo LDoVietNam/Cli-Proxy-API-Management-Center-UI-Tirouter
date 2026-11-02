@@ -1,7 +1,6 @@
 import { useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { Skeleton } from '@/components/ui/Skeleton';
 import {
   IconBot,
   IconFileText,
@@ -12,29 +11,21 @@ import {
 } from '@/components/ui/icons';
 import { useAuthStore } from '@/stores';
 import { useHeaderRefresh } from '@/hooks/useHeaderRefresh';
-import { formatCompactNumber, formatDateValue, formatPercent } from '@/utils/format';
+import { formatDateValue, formatPercent } from '@/utils/format';
 import { useDashboardOverview } from './hooks/useDashboardOverview';
 import { LiveWire } from './components/LiveWire';
 import { Meter } from './components/Meter';
 import { Sparkline } from './components/Sparkline';
+import { StatTile } from './components/StatTile';
 import { ThroughputChart } from './components/ThroughputChart';
 import { useCountUp, useRevealGroup, useRevealOnScroll } from '@/hooks/motion';
 import { providerLabel, splitWindowMinutes, toneForSuccessRate, type MeterTone } from './utils';
+import {
+  DASH,
+  TILE_ACCENTS,
+  formatHeadline,
+} from '@/constants/pageConstants';
 import styles from './dashboard.module.scss';
-
-const DASH = '—';
-
-/** KPI 卡左上角色签：有语义色调的卡用状态色，其余保持中性 */
-const TILE_ACCENTS: Record<MeterTone, string> = {
-  good: 'var(--viz-success)',
-  warning: 'var(--amber-color)',
-  critical: 'var(--viz-failure)',
-  idle: 'var(--text-quaternary)',
-};
-
-/** 大数字：六位以内用千分位，再往上压缩，避免撑破排版 */
-const formatHeadline = (value: number): string =>
-  value < 100_000 ? value.toLocaleString() : formatCompactNumber(value);
 
 export function DashboardPage() {
   const { t, i18n } = useTranslation();
@@ -328,32 +319,18 @@ export function DashboardPage() {
       {/* ---------- KPI ---------- */}
       <section className={styles.statsRow} ref={statsRef} aria-label={t('dashboard.stats_aria')}>
         {statTiles.map((tile) => (
-          <article
+          <StatTile
             key={tile.key}
-            className={styles.statTile}
-            data-reveal
-            style={
-              {
-                '--tile-accent': tile.tone ? TILE_ACCENTS[tile.tone] : 'var(--border-hover)',
-              } as React.CSSProperties
-            }
-          >
-            <span className={styles.statLabel}>{tile.label}</span>
-            {tile.pending ? (
-              <Skeleton className={styles.statValueSkeleton} rounded={6} aria-hidden="true" />
-            ) : (
-              <strong className={styles.statValue}>{tile.value}</strong>
-            )}
-            {tile.meter !== null && tile.meter !== undefined && (
-              <Meter
-                value={tile.meter}
-                tone={tile.tone}
-                ariaLabel={tile.label}
-                className={styles.statMeter}
-              />
-            )}
-            <span className={styles.statHint}>{tile.hint}</span>
-          </article>
+            label={tile.label}
+            value={tile.value}
+            hint={tile.hint}
+            pending={tile.pending}
+            meter={tile.meter}
+            tone={tile.tone}
+            style={{
+              '--tile-accent': tile.tone ? TILE_ACCENTS[tile.tone] : 'var(--border-hover)',
+            } as React.CSSProperties}
+          />
         ))}
       </section>
 

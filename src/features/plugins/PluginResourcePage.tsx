@@ -16,6 +16,20 @@ import styles from './PluginResourcePage.module.scss';
 
 const hasStatus = (error: unknown, status: number) => isRecord(error) && error.status === status;
 
+// The taskboard plugin serves its board as a same-origin iframe with its own
+// token store. It would otherwise stop at an "enter the management key" prompt
+// even though the panel already holds the key. Priming its localStorage key
+// keeps the key out of the iframe URL, and the plugin only sees what the panel
+// itself has (same origin, same session).
+const TASKBOARD_PLUGIN_ID = 'tirouter-taskboard';
+const TASKBOARD_TOKEN_KEY = 'tb_auth_token';
+// The board's script refuses to fetch while its token is empty. When the panel
+// itself is in without a key, the gateway is already accepting this browser
+// keyless (loopback + disable-auth), so any non-empty value lets the board
+// through; the gateway ignores the header on that path. If a key is later
+// required, the board gets 401 and falls back to its own key prompt.
+const TASKBOARD_LOOPBACK_TOKEN = 'loopback-keyless';
+
 const safeDecodeURIComponent = (value = '') => {
   try {
     return decodeURIComponent(value);
@@ -34,6 +48,7 @@ export function PluginResourcePage() {
   const params = useParams<{ pluginId: string; menuIndex: string }>();
   const connectionStatus = useAuthStore((state) => state.connectionStatus);
   const apiBase = useAuthStore((state) => state.apiBase);
+  const managementKey = useAuthStore((state) => state.managementKey);
 
   const [data, setData] = useState<PluginListResponse | null>(null);
   const [loading, setLoading] = useState(true);
@@ -42,6 +57,35 @@ export function PluginResourcePage() {
   const connected = connectionStatus === 'connected';
   const pluginID = useMemo(() => safeDecodeURIComponent(params.pluginId), [params.pluginId]);
   const menuIndex = useMemo(() => parseMenuIndex(params.menuIndex), [params.menuIndex]);
+  const isTaskboard = pluginID === TASKBOARD_PLUGIN_ID;
+  // Render the frame only after the token write, so the plugin script cannot
+  // read the store before it has been refreshed for this session.
+  const [tokenPrimed, setTokenPrimed] = useState(!isTaskboard);
+
+  useEffect(() => {
+    if (!isTaskboard) return;
+    const key = managementKey.trim() || (connected ? TASKBOARD_LOOPBACK_TOKEN : '');
+    try {
+      if (key) {
+        localStorage.setItem(TASKBOARD_TOKEN_KEY, key);
+      } else {
+        localStorage.removeItem(TASKBOARD_TOKEN_KEY);
+      }
+    } catch {
+      // Storage can be blocked (private mode); the plugin then prompts as before.
+    }
+    setTokenPrimed(true);
+
+    // Leaving the board must not leave the management key behind: the store is
+    // shared by every page on this origin, including a later signed-out visit.
+    return () => {
+      try {
+        localStorage.removeItem(TASKBOARD_TOKEN_KEY);
+      } catch {
+        // Ignore storage failures on the way out.
+      }
+    };
+  }, [connected, isTaskboard, managementKey]);
 
   const loadResource = useCallback(async () => {
     if (!connected) {
@@ -111,8 +155,13 @@ export function PluginResourcePage() {
             description={t('plugin_resource.empty_src_desc')}
           />
         </div>
+      ) : !tokenPrimed ? (
+        <div className={styles.stateShell}>
+          <div className={styles.statusPanel}>{t('common.loading')}</div>
+        </div>
       ) : (
         <iframe
+          key={`${pluginID}:${menuIndex}:${managementKey}`}
           className={styles.frame}
           src={iframeSrc}
           title={resource.label}
@@ -123,3 +172,5 @@ export function PluginResourcePage() {
     </div>
   );
 }
+
+export default PluginResourcePage;

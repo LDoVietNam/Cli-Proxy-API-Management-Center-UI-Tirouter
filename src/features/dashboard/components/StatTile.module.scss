@@ -1,0 +1,58 @@
+.statTile {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 14px 16px;
+  background: var(--bg-primary);
+  border: 1px solid var(--border-color);
+  border-radius: $radius-md;
+  min-width: 0;
+  transition: border-color $transition-fast, box-shadow $transition-fast;
+
+  &:hover {
+    border-color: var(--border-hover);
+    box-shadow: 0 2px 8px var(--shadow-soft);
+  }
+}
+
+.statLabel {
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--text-tertiary);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.statValue {
+  font-size: 24px;
+  font-weight: 700;
+  color: var(--text-primary);
+  font-variant-numeric: tabular-nums;
+  line-height: 1.2;
+}
+
+.statValueSkeleton {
+  height: 24px;
+  width: 80px;
+}
+
+.statMeter {
+  margin-top: 6px;
+  height: 4px;
+}
+
+.statHint {
+  font-size: 11px;
+  color: var(--text-quaternary);
+  line-height: 1.4;
+}
+
+@include mobile {
+  .statTile {
+    padding: 12px 14px;
+  }
+
+  .statValue {
+    font-size: 20px;
+  }
+}

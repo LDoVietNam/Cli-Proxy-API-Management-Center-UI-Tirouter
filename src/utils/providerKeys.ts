@@ -3,6 +3,7 @@ const OAUTH_PROVIDER_ALIASES: Record<string, string> = {
   grok: 'xai',
   'x-ai': 'xai',
   'x.ai': 'xai',
+  muse: 'meta',
 };
 
 const MANAGEMENT_OAUTH_PROVIDER_PATTERN = /^[a-z0-9-]+$/;

@@ -13,6 +13,7 @@ export type SecondaryScreenShellProps = {
   isLoading?: boolean;
   loadingLabel?: ReactNode;
   className?: string;
+  topBarClassName?: string;
   contentClassName?: string;
   children?: ReactNode;
 };
@@ -28,19 +29,21 @@ export const SecondaryScreenShell = forwardRef<HTMLDivElement, SecondaryScreenSh
       isLoading = false,
       loadingLabel = 'Loading...',
       className = '',
+      topBarClassName = '',
       contentClassName = '',
       children,
     },
     ref
   ) {
     const containerClassName = [styles.container, className].filter(Boolean).join(' ');
+    const topBarClasses = [styles.topBar, topBarClassName].filter(Boolean).join(' ');
     const contentClasses = [styles.content, contentClassName].filter(Boolean).join(' ');
     const titleTooltip = typeof title === 'string' ? title : undefined;
     const resolvedBackAriaLabel = backAriaLabel ?? backLabel;
 
     return (
       <div className={containerClassName} ref={ref}>
-        <div className={styles.topBar}>
+        <div className={topBarClasses}>
           {onBack ? (
             <Button
               variant="ghost"

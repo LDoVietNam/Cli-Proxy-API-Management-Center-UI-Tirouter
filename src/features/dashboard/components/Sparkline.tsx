@@ -1,4 +1,4 @@
-import { useId, useMemo } from 'react';
+import { memo, useId, useMemo } from 'react';
 import { buildSmoothLinePath } from './curve';
 import styles from './Sparkline.module.scss';
 
@@ -15,11 +15,7 @@ interface SparklineProps {
   className?: string;
 }
 
-/**
- * 极简迷你折线：2px 线 + 同色 10% 面积。
- * 单序列，因此不需要图例；数值由所在卡片的文本承载。
- */
-export function Sparkline({ points, color, ariaLabel, className }: SparklineProps) {
+const SparklineComponent = memo(function Sparkline({ points, color, ariaLabel, className }: SparklineProps) {
   const gradientId = useId();
 
   const geometry = useMemo(() => {
@@ -49,9 +45,7 @@ export function Sparkline({ points, color, ariaLabel, className }: SparklineProp
   }, [points]);
 
   if (!geometry) {
-    return (
-      <div className={[styles.empty, className].filter(Boolean).join(' ')} aria-hidden="true" />
-    );
+    return <div className={[styles.empty, className].filter(Boolean).join(' ')} aria-hidden="true" />;
   }
 
   const strokeColor = geometry.isFlat
@@ -84,4 +78,6 @@ export function Sparkline({ points, color, ariaLabel, className }: SparklineProp
       />
     </svg>
   );
-}
+});
+
+export { SparklineComponent as Sparkline };

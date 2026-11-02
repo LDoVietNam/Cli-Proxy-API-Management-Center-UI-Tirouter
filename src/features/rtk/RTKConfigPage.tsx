@@ -13,7 +13,13 @@ export function RTKConfigPage() {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const { isAuthenticated } = useAuthStore();
-  const [config, setConfig] = useState<RTKConfig>({ enabled: false, binary: '', 'ultra-mode': false });
+  const [config, setConfig] = useState<RTKConfig>({
+    enabled: false,
+    binary: '',
+    'ultra-mode': false,
+    'pool-size': '',
+    timeout: '',
+  });
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -123,6 +129,24 @@ export function RTKConfigPage() {
         </div>
 
         <div className="form-group">
+          <label className={styles['form-label']} htmlFor="rtk-pool-size">
+            {t('rtk.pool_size', 'Pool Size')}
+          </label>
+          <input
+            className={styles.input}
+            type="text"
+            id="rtk-pool-size"
+            value={config['pool-size'] || ''}
+            onChange={(e) => setConfig((prev) => ({ ...prev, 'pool-size': e.target.value }))}
+            placeholder="4"
+            disabled={!config.enabled}
+          />
+          <p className={styles['form-hint']}>
+            {t('rtk.pool_size_hint', 'Number of reusable RTK worker processes (empty uses the binary default)')}
+          </p>
+        </div>
+
+        <div className="form-group">
           <div className={styles['toggle-row']}>
             <ToggleSwitch
               checked={config['ultra-mode']}
@@ -185,3 +209,5 @@ export function RTKConfigPage() {
     </div>
   );
 }
+
+export default RTKConfigPage;

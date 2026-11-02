@@ -1,5 +1,3 @@
-import type { ModelAlias } from './provider';
-
 export type PayloadParamValueType = 'string' | 'number' | 'boolean' | 'json';
 export type DisableImageGenerationMode = 'false' | 'true' | 'chat' | 'passthrough';
 export type RoutingStrategy = 'round-robin' | 'weighted-round-robin' | 'fill-first';
@@ -254,7 +252,6 @@ export interface IntelligentRoutingConfig {
   defaultBudget: string;
   confidenceThreshold: number;
   decisionCacheTTL: string;
-  modelAliases: ModelAlias[];
 }
 
 export interface LLMRoutingConfig {
@@ -777,7 +774,6 @@ export const DEFAULT_VISUAL_VALUES: VisualConfigValues = {
     defaultBudget: 'balanced',
     confidenceThreshold: 0.7,
     decisionCacheTTL: '10m',
-    modelAliases: [],
   },
   llmRouting: {
     enabled: false,

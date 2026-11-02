@@ -91,9 +91,6 @@ export function LoginPage() {
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
   const login = useAuthStore((state) => state.login);
   const restoreSession = useAuthStore((state) => state.restoreSession);
-  const storedBase = useAuthStore((state) => state.apiBase);
-  const storedKey = useAuthStore((state) => state.managementKey);
-  const storedRememberPassword = useAuthStore((state) => state.rememberPassword);
 
   const [apiBase, setApiBase] = useState('');
   const [managementKey, setManagementKey] = useState('');
@@ -125,37 +122,47 @@ export function LoginPage() {
   );
 
   useEffect(() => {
+    let redirectTimer: ReturnType<typeof setTimeout> | undefined;
+    let cancelled = false;
+
     const init = async () => {
       try {
         const autoLoggedIn = await restoreSession();
+        if (cancelled) return;
         if (autoLoggedIn) {
           setAutoLoginSuccess(true);
           // 延迟跳转，让用户看到成功动画
-          setTimeout(() => {
-            const redirect = (location.state as RedirectState | null)?.from?.pathname || '/';
+          const redirect = (location.state as RedirectState | null)?.from?.pathname || '/';
+          redirectTimer = setTimeout(() => {
             navigate(redirect, { replace: true });
           }, 1500);
         } else {
+          // Read after the probe: restoreSession() has just migrated any legacy
+          // apiBase / managementKey into the store, so the mount-time snapshot
+          // captured by this effect would be empty.
+          const { apiBase: storedBase, managementKey: storedKey, rememberPassword: storedRememberPassword } =
+            useAuthStore.getState();
           setApiBase(storedBase || detectedBase);
           setManagementKey(storedKey || '');
           setRememberPassword(storedRememberPassword || Boolean(storedKey));
         }
       } finally {
         // 自动登录成功时 showSplash 仍由 autoLoginSuccess 维持，可无条件结束 loading
-        setAutoLoading(false);
+        if (!cancelled) setAutoLoading(false);
       }
     };
 
     init();
+    return () => {
+      cancelled = true;
+      if (redirectTimer) clearTimeout(redirectTimer);
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const handleSubmit = useCallback(async () => {
-    if (!managementKey.trim()) {
-      setError(t('login.error_required'));
-      return;
-    }
-
+    // An empty key is allowed: loopback callers are authenticated by the server
+    // without one, and remote callers get a clear 401 back.
     const baseToUse = apiBase ? normalizeApiBase(apiBase) : detectedBase;
     setLoading(true);
     setError('');

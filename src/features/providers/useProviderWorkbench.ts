@@ -7,20 +7,24 @@ import {
   withDisableAllModelsRule,
   withoutDisableAllModelsRule,
 } from '@/components/providers/utils';
-import type { GeminiKeyConfig, ModelAlias, OpenAIProviderConfig, ProviderKeyConfig } from '@/types';
+import type {
+  Config,
+  GeminiKeyConfig,
+  ModelAlias,
+  OpenAIProviderConfig,
+  ProviderKeyConfig,
+} from '@/types';
 import {
   apiKeyFunToResource,
   anthropicToResourceSponsor,
-  claudeApiToResource,
   claudeToResource,
-  code0ToResource,
   codexToResource,
   fennoAIToResource,
   geminiToResource,
   interactionsToResource,
+  metaToResource,
   openaiToResource,
   qiniuCloudToResource,
-  lmuAIToResource,
   kimiToResource,
   vertexToResource,
   xaiToResource,
@@ -43,14 +47,8 @@ import {
   isApiKeyFunCodexProvider,
   isApiKeyFunOpenAIProvider,
 } from './sponsor';
-import { CLAUDE_API_BASE_URL, isClaudeApiProvider } from './claudeApi';
-import {
-  buildCode0Raw,
-  isCode0ClaudeProvider,
-  isCode0CodexProvider,
-  isCode0GeminiProvider,
-  isCode0OpenAIProvider,
-} from './code0';
+import { CLAUDE_API_BASE_URL } from './claudeApi';
+import { buildCode0Raw } from './code0';
 import { buildFennoAIRaw, isFennoAIClaudeProvider, isFennoAICodexProvider } from './fennoAI';
 import {
   buildQiniuCloudRaw,
@@ -59,13 +57,7 @@ import {
   isQiniuCloudGeminiProvider,
   isQiniuCloudOpenAIProvider,
 } from './qiniuCloud';
-import {
-  buildLmuAIRaw,
-  isLmuAIClaudeProvider,
-  isLmuAICodexProvider,
-  isLmuAIGeminiProvider,
-  isLmuAIOpenAIProvider,
-} from './lmuAI';
+import { buildLmuAIRaw } from './lmuAI';
 import { buildKimiRaw, isKimiClaudeProvider, isKimiOpenAIProvider } from './kimi';
 import { buildAnthropicRaw } from './anthropic';
 import { getSponsorProviderDefinition, type SponsorProtocolUrls } from './sponsorDefinitions';
@@ -382,6 +374,108 @@ const toggleSponsorConfig = async (raw: SponsorProviderRaw, disabled: boolean) =
 /* hook                                                                       */
 /* -------------------------------------------------------------------------- */
 
+const RETIRED_PROVIDER_GROUPS = new Set<ProviderBrand>(['claudeApi', 'code0', 'lmuAI']);
+
+export const buildProviderGroups = (config: Config): ProviderGroup[] =>
+  PROVIDER_BRAND_ORDER.filter((brand) => !RETIRED_PROVIDER_GROUPS.has(brand)).map((brand) => {
+    let resources: ProviderResource[] = [];
+    switch (brand) {
+      case 'gemini':
+        resources = (config.geminiApiKeys ?? []).reduce<ProviderResource[]>((out, item, index) => {
+          if (!isQiniuCloudGeminiProvider(item)) {
+            out.push(geminiToResource(item, index));
+          }
+          return out;
+        }, []);
+        break;
+      case 'interactions':
+        resources = (config.interactionsApiKeys ?? []).map((item, index) =>
+          interactionsToResource(item, index)
+        );
+        break;
+      case 'codex':
+        resources = (config.codexApiKeys ?? []).reduce<ProviderResource[]>((out, item, index) => {
+          if (
+            !isApiKeyFunCodexProvider(item) &&
+            !isFennoAICodexProvider(item) &&
+            !isQiniuCloudCodexProvider(item)
+          ) {
+            out.push(codexToResource(item, index));
+          }
+          return out;
+        }, []);
+        break;
+      case 'meta':
+        resources = (config.metaApiKeys ?? []).map((item, index) => metaToResource(item, index));
+        break;
+      case 'xai':
+        resources = (config.xaiApiKeys ?? []).map((item, index) => xaiToResource(item, index));
+        break;
+      case 'claude':
+        resources = (config.claudeApiKeys ?? []).reduce<ProviderResource[]>((out, item, index) => {
+          if (
+            !isApiKeyFunClaudeProvider(item) &&
+            !isFennoAIClaudeProvider(item) &&
+            !isQiniuCloudClaudeProvider(item) &&
+            !isKimiClaudeProvider(item)
+          ) {
+            out.push(claudeToResource(item, index));
+          }
+          return out;
+        }, []);
+        break;
+      case 'vertex':
+        resources = (config.vertexApiKeys ?? []).map((item, index) =>
+          vertexToResource(item, index)
+        );
+        break;
+      case 'openaiCompatibility':
+        resources = (config.openaiCompatibility ?? []).reduce<ProviderResource[]>(
+          (out, item, index) => {
+            if (
+              !isApiKeyFunOpenAIProvider(item) &&
+              !isQiniuCloudOpenAIProvider(item) &&
+              !isKimiOpenAIProvider(item)
+            ) {
+              out.push(openaiToResource(item, index));
+            }
+            return out;
+          },
+          []
+        );
+        break;
+      case 'apikeyFun': {
+        const sponsorResource = apiKeyFunToResource(buildApiKeyFunRaw(config));
+        resources = sponsorResource ? [sponsorResource] : [];
+        break;
+      }
+      case 'fennoAI': {
+        const sponsorResource = fennoAIToResource(buildFennoAIRaw(config));
+        resources = sponsorResource ? [sponsorResource] : [];
+        break;
+      }
+      case 'qiniuCloud': {
+        const sponsorResource = qiniuCloudToResource(buildQiniuCloudRaw(config));
+        resources = sponsorResource ? [sponsorResource] : [];
+        break;
+      }
+      case 'kimi': {
+        const sponsorResource = kimiToResource(buildKimiRaw(config));
+        resources = sponsorResource ? [sponsorResource] : [];
+        break;
+      }
+      case 'anthropic': {
+        const sponsorResource = anthropicToResourceSponsor(buildAnthropicRaw(config));
+        resources = sponsorResource ? [sponsorResource] : [];
+        break;
+      }
+    }
+    return {
+      id: brand,
+      resources,
+    };
+  });
+
 export function useProviderWorkbench(): UseProviderWorkbenchResult {
   const connectionStatus = useAuthStore((s) => s.connectionStatus);
   const config = useConfigStore((s) => s.config);
@@ -441,140 +535,9 @@ export function useProviderWorkbench(): UseProviderWorkbenchResult {
 
   const snapshot = useMemo<ProviderSnapshot | null>(() => {
     if (!config) return null;
-    const groups: ProviderGroup[] = PROVIDER_BRAND_ORDER.map((brand) => {
-      let resources: ProviderResource[] = [];
-      switch (brand) {
-        case 'gemini':
-          resources = (config.geminiApiKeys ?? []).reduce<ProviderResource[]>(
-            (out, item, index) => {
-              if (
-                !isCode0GeminiProvider(item) &&
-                !isQiniuCloudGeminiProvider(item) &&
-                !isLmuAIGeminiProvider(item)
-              ) {
-                out.push(geminiToResource(item, index));
-              }
-              return out;
-            },
-            []
-          );
-          break;
-        case 'interactions':
-          resources = (config.interactionsApiKeys ?? []).map((item, index) =>
-            interactionsToResource(item, index)
-          );
-          break;
-        case 'codex':
-          resources = (config.codexApiKeys ?? []).reduce<ProviderResource[]>((out, item, index) => {
-            if (
-              !isApiKeyFunCodexProvider(item) &&
-              !isCode0CodexProvider(item) &&
-              !isFennoAICodexProvider(item) &&
-              !isQiniuCloudCodexProvider(item) &&
-              !isLmuAICodexProvider(item)
-            ) {
-              out.push(codexToResource(item, index));
-            }
-            return out;
-          }, []);
-          break;
-        case 'xai':
-          resources = (config.xaiApiKeys ?? []).map((item, index) => xaiToResource(item, index));
-          break;
-        case 'claude':
-          resources = (config.claudeApiKeys ?? []).reduce<ProviderResource[]>(
-            (out, item, index) => {
-              if (
-                !isApiKeyFunClaudeProvider(item) &&
-                !isCode0ClaudeProvider(item) &&
-                !isFennoAIClaudeProvider(item) &&
-                !isQiniuCloudClaudeProvider(item) &&
-                !isLmuAIClaudeProvider(item) &&
-                !isKimiClaudeProvider(item) &&
-                !isClaudeApiProvider(item)
-              ) {
-                out.push(claudeToResource(item, index));
-              }
-              return out;
-            },
-            []
-          );
-          break;
-        case 'claudeApi':
-          resources = (config.claudeApiKeys ?? []).reduce<ProviderResource[]>(
-            (out, item, index) => {
-              if (isClaudeApiProvider(item)) {
-                out.push(claudeApiToResource(item, index));
-              }
-              return out;
-            },
-            []
-          );
-          break;
-        case 'vertex':
-          resources = (config.vertexApiKeys ?? []).map((c, i) => vertexToResource(c, i));
-          break;
-        case 'openaiCompatibility':
-          resources = (config.openaiCompatibility ?? []).reduce<ProviderResource[]>(
-            (out, item, index) => {
-              if (
-                !isApiKeyFunOpenAIProvider(item) &&
-                !isCode0OpenAIProvider(item) &&
-                !isQiniuCloudOpenAIProvider(item) &&
-                !isLmuAIOpenAIProvider(item) &&
-                !isKimiOpenAIProvider(item)
-              ) {
-                out.push(openaiToResource(item, index));
-              }
-              return out;
-            },
-            []
-          );
-          break;
-        case 'apikeyFun': {
-          const sponsorResource = apiKeyFunToResource(buildApiKeyFunRaw(config));
-          resources = sponsorResource ? [sponsorResource] : [];
-          break;
-        }
-        case 'code0': {
-          const sponsorResource = code0ToResource(buildCode0Raw(config));
-          resources = sponsorResource ? [sponsorResource] : [];
-          break;
-        }
-        case 'fennoAI': {
-          const sponsorResource = fennoAIToResource(buildFennoAIRaw(config));
-          resources = sponsorResource ? [sponsorResource] : [];
-          break;
-        }
-        case 'qiniuCloud': {
-          const sponsorResource = qiniuCloudToResource(buildQiniuCloudRaw(config));
-          resources = sponsorResource ? [sponsorResource] : [];
-          break;
-        }
-        case 'lmuAI': {
-          const sponsorResource = lmuAIToResource(buildLmuAIRaw(config));
-          resources = sponsorResource ? [sponsorResource] : [];
-          break;
-        }
-        case 'kimi': {
-          const sponsorResource = kimiToResource(buildKimiRaw(config));
-          resources = sponsorResource ? [sponsorResource] : [];
-          break;
-        }
-        case 'anthropic': {
-          const sponsorResource = anthropicToResourceSponsor(buildAnthropicRaw(config));
-          resources = sponsorResource ? [sponsorResource] : [];
-          break;
-        }
-      }
-      return {
-        id: brand,
-        resources,
-      };
-    });
     return {
       fetchedAt,
-      groups,
+      groups: buildProviderGroups(config),
     };
   }, [config, fetchedAt]);
 

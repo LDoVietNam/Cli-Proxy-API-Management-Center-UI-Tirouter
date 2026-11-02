@@ -245,6 +245,15 @@
   min-width: 0;
 }
 
+.codexResetCreditRowSoon {
+  border-color: color-mix(in srgb, var(--viz-warning) 55%, transparent);
+  background-color: color-mix(in srgb, var(--viz-warning) 12%, transparent);
+
+  .codexResetCreditTime {
+    color: var(--viz-warning);
+  }
+}
+
 .codexResetCreditLabel {
   color: var(--text-tertiary);
   flex: 0 0 auto;

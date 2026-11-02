@@ -15,7 +15,9 @@ const i18n = createInstance();
 await i18n.init({ lng: 'en', resources: { en: { translation: en } } });
 
 describe('Devin OAuth login UI', () => {
-  test('renders a built-in login card with version and expiry guidance', () => {
+  test('does not render a built-in Devin login card', () => {
+    // This backend has no devin-auth-url route; Devin appears only when a
+    // plugin declares a Devin OAuth provider.
     const markup = renderToStaticMarkup(
       createElement(
         I18nextProvider,
@@ -23,10 +25,8 @@ describe('Devin OAuth login UI', () => {
         createElement(MemoryRouter, null, createElement(OAuthPage))
       )
     );
-    expect(markup).toContain('Devin OAuth');
-    expect(markup).toContain('Start Devin Login');
-    expect(markup).toContain('v7.3.1');
-    expect(markup).toContain('five minutes');
+    expect(markup).not.toContain('Devin OAuth');
+    expect(markup).not.toContain('Start Devin Login');
     expect(markup).not.toContain('auth_login.devin_');
   });
 

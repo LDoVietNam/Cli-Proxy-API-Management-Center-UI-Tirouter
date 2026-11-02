@@ -553,15 +553,6 @@ export function IconSidebarPrompts({ size = 20, ...props }: IconProps) {
   );
 }
 
-export function IconSidebarRoutingTest({ size = 20, ...props }: IconProps) {
-  return (
-    <svg {...baseSvgProps} width={size} height={size} {...props}>
-      <path d="M12 2L2 7l10 5 10-5-10-5z" fill="none" stroke="currentColor" strokeWidth="2"/>
-      <path d="M12 10v8M9 13h6M9 17h6" fill="none" stroke="currentColor" strokeWidth="2"/>
-    </svg>
-  );
-}
-
 export function IconSidebarKanban({ size = 20, ...props }: IconProps) {
   return (
     <svg {...baseSvgProps} width={size} height={size} {...props}>

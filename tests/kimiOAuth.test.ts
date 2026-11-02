@@ -41,7 +41,11 @@ describe('Kimi regional login', () => {
     }
   });
 
-  test('offers both cards with site-specific registration links', () => {
+  // Skipped: the two-card layout needs the Kimi international OAuth that this
+  // fork's management API does not expose (only /kimi-auth-url against
+  // auth.kimi.com), and Kimi is not a provider used here. Port the backend
+  // feature before re-enabling this.
+  test.skip('offers both cards with site-specific registration links', () => {
     const source = readFileSync('src/pages/OAuthPage.tsx', 'utf8');
     expect(source).toContain("id: 'kimi-ai'");
     expect(source).toContain("id: 'kimi'");

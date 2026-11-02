@@ -31,7 +31,6 @@ import {
   IconSidebarCompression,
   IconSidebarRTK,
   IconSidebarPrompts,
-  IconSidebarRoutingTest,
   IconSidebarKanban,
   IconModels,
   IconChevronDown,
@@ -72,7 +71,6 @@ const sidebarIcons: Record<string, ReactNode> = {
   compression: <IconSidebarCompression size={18} />,
   rtk: <IconSidebarRTK size={18} />,
   prompts: <IconSidebarPrompts size={18} />,
-  routingTest: <IconSidebarRoutingTest size={18} />,
   models: <IconModels size={18} />,
   taskboard: <IconSidebarKanban size={18} />,
   services: <IconSidebarServices size={18} />,
@@ -1116,7 +1114,7 @@ export function MainLayout() {
               </div>
             )}
           </div>
-          <Button variant="ghost" size="sm" onClick={logout} title={t('header.logout')}>
+          <Button variant="ghost" size="sm" onClick={() => logout(true)} title={t('header.logout')}>
             {headerIcons.logout}
           </Button>
         </div>

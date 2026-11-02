@@ -56,7 +56,7 @@ export default defineConfig({
     },
     preprocessorOptions: {
       scss: {
-        additionalData: `@use "@/styles/variables.scss" as *;`
+        additionalData: `@use "@/styles/variables.scss" as *;\n@use "@/styles/mixins" as *;\n`
       }
     }
   },
@@ -65,7 +65,7 @@ export default defineConfig({
     outDir: 'dist',
     assetsInlineLimit: 51200,
     chunkSizeWarningLimit: 100000000,
-    cssCodeSplit: false,
+    cssCodeSplit: true,
     reportCompressedSize: false,
     rollupOptions: {
       output: {

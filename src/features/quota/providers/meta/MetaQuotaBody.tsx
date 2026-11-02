@@ -1,68 +1,54 @@
+import { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { MetaQuotaState } from '@/types';
 import { useNow } from '@/hooks/useNow';
 import { buildResetDisplay } from '@/utils/quota';
 import { QuotaMeter } from '../../components/QuotaMeter';
 import { QuotaResetLabel } from '../../components/QuotaResetLabel';
+import { collectQuotaRowInstants, pickUrgentRowId } from '../../resetSchedule';
 import type { QuotaBodyProps } from '../../types';
 
 export function MetaQuotaBody({ quota, classes }: QuotaBodyProps<MetaQuotaState>) {
   const { t, i18n } = useTranslation();
   const now = useNow();
-  const locale = i18n.resolvedLanguage;
-
-  if (quota.status === 'loading') {
-    return <div className={classes.quotaMessage}>{t('meta_quota.loading')}</div>;
-  }
-  if (quota.status === 'error') {
-    return <div className={classes.quotaMessage}>{quota.error || t('meta_quota.error')}</div>;
-  }
-  // Handle both quota.windows and quota.data?.windows
-  const windows = quota.windows ?? quota.data?.windows ?? [];
-  // Show window labels as hints even when there's no data
-  if (windows.length === 0) {
-    return (
-      <div className={classes.quotaMessage}>
-        {t('meta_quota.empty_data')}
-        <div className={classes.hint}>
-          {t('meta_quota.window')}, {t('meta_quota.weekly')}
-        </div>
-        <div className={classes.hint}>{t('meta_quota.unknown')}</div>
-      </div>
-    );
-  }
-  if (windows.every((window) => window.usedPercent === null)) {
-    return (
-      <div className={classes.quotaMessage}>
-        {t('meta_quota.empty_data')}
-        <div className={classes.hint}>
-          {t('meta_quota.window')}, {t('meta_quota.weekly')}
-        </div>
-        <div className={classes.hint}>{t('meta_quota.unknown')}</div>
-      </div>
-    );
-  }
-
-  // Display plan name if available, otherwise fall back to window-based labels
-  const planName = quota.planType ? t(quota.planType) : quota.data?.planName ? t(quota.data.planName) : null;
+  const soonestRowId = useMemo(
+    () => pickUrgentRowId(collectQuotaRowInstants('meta', quota), now),
+    [quota, now]
+  );
+  const data = quota.data;
+  if (!data) return <div className={classes.quotaMessage}>{t('meta_quota.empty_data')}</div>;
 
   return (
     <>
-      {planName && (
-        <div className={classes.planName}>
-          <span className={classes.planNameLabel}>{t('meta_quota.plan_label')}</span>
-          <span className={classes.planNameValue}>{planName}</span>
+      {data.planName && (
+        <div className={classes.codexPlan}>
+          <span className={classes.codexPlanItem}>
+            <span className={classes.codexPlanLabel}>{t('meta_quota.plan')}</span>
+            <span className={classes.codexPlanValue}>{data.planName}</span>
+          </span>
         </div>
       )}
-      {quota.isSubscriptionActive && (
+      {typeof data.isSubscriptionActive === 'boolean' && (
         <div className={classes.subscriptionActive}>
-          {t('meta_quota.active')}
+          {data.isSubscriptionActive ? t('meta_quota.active') : t('meta_quota.inactive')}
         </div>
       )}
-      {windows.map((window, index) => {
+      {data.windows.every((window) => window.usedPercent === null) && (
+        <div className={classes.quotaMessage}>{t('meta_quota.empty_data')}</div>
+      )}
+      {data.windows.map((window, index) => {
         const remaining = window.usedPercent === null ? null : 100 - window.usedPercent;
-        const resetDisplay = buildResetDisplay(window.resetLabel, window.resetAtMs, now, locale);
-        const label = t(`meta_quota.${window.id}`);
+        const resetDisplay = buildResetDisplay(
+          null,
+          window.resetAt === undefined ? null : window.resetAt * 1000,
+          now,
+          i18n.resolvedLanguage
+        );
+        const soon = window.id === soonestRowId;
+        const label =
+          window.id === 'window' && window.durationMinutes
+            ? t('meta_quota.window_duration', { minutes: window.durationMinutes })
+            : t(`meta_quota.${window.id}`);
         return (
           <div key={window.id} className={classes.quotaRow}>
             <div className={classes.quotaRowHeader}>
@@ -74,7 +60,7 @@ export function MetaQuotaBody({ quota, classes }: QuotaBodyProps<MetaQuotaState>
                     : t('meta_quota.remaining', { percent: Number(remaining.toFixed(1)) })}
                 </span>
                 {resetDisplay && (
-                  <QuotaResetLabel display={resetDisplay} classes={classes} />
+                  <QuotaResetLabel display={resetDisplay} classes={classes} soon={soon} />
                 )}
               </div>
             </div>

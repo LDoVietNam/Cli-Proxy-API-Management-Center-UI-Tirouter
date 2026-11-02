@@ -10,11 +10,13 @@ import { ToggleSwitch } from '@/components/ui/ToggleSwitch';
 import type { PromptsConfig, PromptPreset, PromptInject } from '@/types';
 import styles from './PromptsConfigPage.module.scss';
 
+// The backend validates system-mode against the same enum for the default block
+// and the preset inject blocks; anything else is rejected on save.
+const SYSTEM_MODES = ['merge', 'replace', 'head', 'tail'] as const;
+
 const emptyPreset: PromptPreset = {
   name: '',
   models: [],
-  match: [],
-  'not-match': [],
   inject: { system: '', 'system-mode': 'merge', 'prepend-user': '', 'append-user': '' },
 };
 
@@ -83,6 +85,23 @@ export function PromptsConfigPage() {
       newPresets[index] = preset;
       return { ...prev, presets: newPresets };
     });
+  };
+
+  // The backend stores models as rule objects, not as bare strings. Rebuilding
+  // from the comma list keeps any advanced fields already attached to a pattern
+  // (protocol, headers, match conditions) while new patterns start as {name}.
+  const modelPatterns = (preset: PromptPreset) => preset.models.map(rule => rule.name).join(', ');
+
+  const withPatterns = (preset: PromptPreset, raw: string): PromptPreset => {
+    const names = raw
+      .split(',')
+      .map(part => part.trim())
+      .filter(Boolean);
+    const models = names.map(name => {
+      const existing = preset.models.find(rule => rule.name === name);
+      return existing ? { ...existing, name } : { name };
+    });
+    return { ...preset, models };
   };
 
   if (loading) {
@@ -188,56 +207,12 @@ export function PromptsConfigPage() {
                         className={styles.input}
                         type="text"
                         id={`preset-models-${index}`}
-                        value={preset.models.join(', ')}
-                        onChange={(e) => updatePreset(index, { ...preset, models: e.target.value.split(',').map(s => s.trim()).filter(Boolean) })}
+                        value={modelPatterns(preset)}
+                        onChange={(e) => updatePreset(index, withPatterns(preset, e.target.value))}
                         placeholder="gpt-*, claude-*, *"
                         disabled={!config.enabled}
                       />
                       <p className={styles['form-hint']}>{t('prompts.models_hint', 'Comma-separated model patterns. Use * for wildcard.')}</p>
-                    </div>
-
-                    <div className="form-group">
-                      <label className={styles['form-label']} htmlFor={`preset-match-${index}`}>
-                        {t('prompts.match', 'Match Conditions')}
-                      </label>
-                      <textarea
-                        className={styles.input}
-                        id={`preset-match-${index}`}
-                        value={JSON.stringify(preset.match || [], null, 2)}
-                        onChange={(e) => {
-                          try {
-                            updatePreset(index, { ...preset, match: JSON.parse(e.target.value) });
-                          } catch {
-                            // Ignore JSON parse errors during typing
-                          }
-                        }}
-                        placeholder='[{"field": "value"}]'
-                        rows={3}
-                        disabled={!config.enabled}
-                      />
-                      <p className={styles['form-hint']}>{t('prompts.match_hint', 'JSON array of match conditions.')}</p>
-                    </div>
-
-                    <div className="form-group">
-                      <label className={styles['form-label']} htmlFor={`preset-not-match-${index}`}>
-                        {t('prompts.not_match', 'Not Match Conditions')}
-                      </label>
-                      <textarea
-                        className={styles.input}
-                        id={`preset-not-match-${index}`}
-                        value={JSON.stringify(preset['not-match'] || [], null, 2)}
-                        onChange={(e) => {
-                          try {
-                            updatePreset(index, { ...preset, 'not-match': JSON.parse(e.target.value) });
-                          } catch {
-                            // Ignore JSON parse errors during typing
-                          }
-                        }}
-                        placeholder='[{"field": "value"}]'
-                        rows={3}
-                        disabled={!config.enabled}
-                      />
-                      <p className={styles['form-hint']}>{t('prompts.not_match_hint', 'JSON array of not-match conditions.')}</p>
                     </div>
 
                     <div className="form-group">
@@ -268,10 +243,11 @@ export function PromptsConfigPage() {
                             onChange={(e) => updatePreset(index, { ...preset, inject: { ...preset.inject, 'system-mode': e.target.value } })}
                             disabled={!config.enabled}
                           >
-                            <option value="replace">{t('prompts.mode_replace', 'Replace')}</option>
-                            <option value="merge">{t('prompts.mode_merge', 'Merge')}</option>
-                            <option value="prepend">{t('prompts.mode_prepend', 'Prepend')}</option>
-                            <option value="append">{t('prompts.mode_append', 'Append')}</option>
+                            {SYSTEM_MODES.map(mode => (
+                              <option key={mode} value={mode}>
+                                {t(`prompts.mode_${mode}`, mode)}
+                              </option>
+                            ))}
                           </select>
                         </div>
                         <div className="form-group">
@@ -345,10 +321,11 @@ export function PromptsConfigPage() {
                 onChange={(e) => setConfig(prev => ({ ...prev, default: { ...prev.default, 'system-mode': e.target.value } }))}
                 disabled={!config.enabled}
               >
-                <option value="replace">{t('prompts.mode_replace', 'Replace')}</option>
-                <option value="merge">{t('prompts.mode_merge', 'Merge')}</option>
-                <option value="prepend">{t('prompts.mode_prepend', 'Prepend')}</option>
-                <option value="append">{t('prompts.mode_append', 'Append')}</option>
+                {SYSTEM_MODES.map(mode => (
+                  <option key={mode} value={mode}>
+                    {t(`prompts.mode_${mode}`, mode)}
+                  </option>
+                ))}
               </select>
             </div>
             <div className="form-group">
@@ -392,7 +369,7 @@ export function PromptsConfigPage() {
           variant="primary"
           onClick={() => void handleSave()}
           loading={saving}
-          disabled={!config.enabled}
+          disabled={saving}
         >
           {saving ? t('common.saving') : t('common.save')}
         </Button>
@@ -400,3 +377,5 @@ export function PromptsConfigPage() {
     </div>
   );
 }
+
+export default PromptsConfigPage;

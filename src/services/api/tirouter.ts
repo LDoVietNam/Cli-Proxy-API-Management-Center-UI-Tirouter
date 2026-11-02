@@ -9,10 +9,7 @@ import type {
   CompressionStatsResponse,
   CavemanConfig,
   RTKConfig,
-  RTKStats,
   PromptsConfig,
-  RoutingTestRequest,
-  RoutingTestResponse,
 } from '@/types';
 
 export const tirouterApi = {
@@ -100,11 +97,6 @@ export const tirouterApi = {
     return apiClient.put('/rtk', config);
   },
 
-  async getRTKStats(): Promise<RTKStats> {
-    const response = await apiClient.get<{ rtk: RTKStats }>('/compression-stats');
-    return response.rtk;
-  },
-
   // Prompts
   async getPromptsConfig(): Promise<PromptsConfig> {
     return apiClient.get('/prompts');
@@ -112,10 +104,5 @@ export const tirouterApi = {
 
   async updatePromptsConfig(config: PromptsConfig): Promise<PromptsConfig> {
     return apiClient.put('/prompts', config);
-  },
-
-  // Routing Test
-  async testRouting(request: RoutingTestRequest): Promise<RoutingTestResponse> {
-    return apiClient.post('/routing/test', request);
   },
 };

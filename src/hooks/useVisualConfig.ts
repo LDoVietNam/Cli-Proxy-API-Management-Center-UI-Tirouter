@@ -1,5 +1,6 @@
 import { useCallback, useMemo, useReducer } from 'react';
-import { isMap, parse as parseYaml, parseDocument } from 'yaml';
+import { isMap, isScalar, isSeq, parse as parseYaml, parseDocument } from 'yaml';
+import type { Node, Pair, YAMLMap, YAMLSeq } from 'yaml';
 import type {
   DisableImageGenerationMode,
   PluginStoreAuthApplyTo,
@@ -680,28 +681,6 @@ function serializePayloadParamEntryValue(param: PayloadParamEntry): unknown {
   return param.value;
 }
 
-function serializePayloadHeadersForYaml(headers?: PayloadHeaderEntry[]): Record<string, string> {
-  const result: Record<string, string> = {};
-  for (const header of headers ?? []) {
-    const name = header.name.trim();
-    if (!name) continue;
-    result[name] = header.value;
-  }
-  return result;
-}
-
-function serializePayloadConditionsForYaml(
-  conditions?: PayloadParamEntry[]
-): Array<Record<string, unknown>> {
-  const result: Array<Record<string, unknown>> = [];
-  for (const condition of conditions ?? []) {
-    const path = condition.path.trim();
-    if (!path) continue;
-    result.push({ [path]: serializePayloadParamEntryValue(condition) });
-  }
-  return result;
-}
-
 function serializeStringListForYaml(items?: string[]): string[] {
   return (items ?? []).map((item) => item.trim()).filter(Boolean);
 }
@@ -730,81 +709,330 @@ function serializePluginStoreAuthForYaml(
     .filter((rule): rule is Record<string, unknown> => Boolean(rule));
 }
 
-function serializePayloadModelsForYaml(
-  models: PayloadRule['models']
-): Array<Record<string, unknown>> {
-  return (models || [])
-    .filter((m) => m.name?.trim())
-    .map((m) => {
-      const obj: Record<string, unknown> = { name: m.name.trim() };
-      if (m.protocol) obj.protocol = m.protocol;
-      if (m.fromProtocol) obj['from-protocol'] = m.fromProtocol;
-
-      const headers = serializePayloadHeadersForYaml(m.headers);
-      if (Object.keys(headers).length) obj.headers = headers;
-
-      const match = serializePayloadConditionsForYaml(m.match);
-      if (match.length) obj.match = match;
-
-      const notMatch = serializePayloadConditionsForYaml(m.notMatch);
-      if (notMatch.length) obj['not-match'] = notMatch;
-
-      const exist = serializeStringListForYaml(m.exist);
-      if (exist.length) obj.exist = exist;
-
-      const notExist = serializeStringListForYaml(m.notExist);
-      if (notExist.length) obj['not-exist'] = notExist;
-
-      return obj;
-    });
+function mapPair(map: YAMLMap, key: string): Pair | undefined {
+  return map.items.find((pair) => String(isScalar(pair.key) ? pair.key.value : pair.key) === key);
 }
 
-function serializePayloadRulesForYaml(rules: PayloadRule[]): Array<Record<string, unknown>> {
-  return rules
-    .map((rule) => {
-      const models = serializePayloadModelsForYaml(rule.models);
+function preserveNodeComments(previous: Node | null | undefined, next: Node): Node {
+  if (!previous) return next;
+  next.comment = previous.comment;
+  next.commentBefore = previous.commentBefore;
+  next.spaceBefore = previous.spaceBefore;
+  return next;
+}
 
-      const params: Record<string, unknown> = {};
-      for (const param of rule.params || []) {
-        if (!param.path?.trim()) continue;
-        params[param.path.trim()] = serializePayloadParamEntryValue(param);
+function updatePairValue(doc: YamlDocument, pair: Pair, value: unknown): void {
+  if (isScalar(pair.value) && (value === null || typeof value !== 'object')) {
+    pair.value.value = value;
+    return;
+  }
+  const previous = pair.value && typeof pair.value === 'object' ? (pair.value as Node) : undefined;
+  pair.value = preserveNodeComments(previous, doc.createNode(value));
+}
+
+function setMapValue(doc: YamlDocument, map: YAMLMap, key: string, value: unknown): void {
+  const pair = mapPair(map, key);
+  if (pair) {
+    updatePairValue(doc, pair, value);
+  } else {
+    map.items.push(doc.createPair(key, value));
+  }
+}
+
+function deleteMapValue(map: YAMLMap, key: string): void {
+  const pair = mapPair(map, key);
+  if (pair) map.items.splice(map.items.indexOf(pair), 1);
+}
+
+function ensureMapValue(doc: YamlDocument, map: YAMLMap, key: string): YAMLMap {
+  const pair = mapPair(map, key);
+  if (pair && isMap(pair.value)) return pair.value;
+  const next = doc.createNode({}) as YAMLMap;
+  if (pair) {
+    pair.value = preserveNodeComments(
+      pair.value && typeof pair.value === 'object' ? (pair.value as Node) : undefined,
+      next
+    );
+  } else {
+    map.items.push(doc.createPair(key, next));
+  }
+  return next;
+}
+
+function ensureSeqValue(doc: YamlDocument, map: YAMLMap, key: string): YAMLSeq {
+  const pair = mapPair(map, key);
+  if (pair && isSeq(pair.value)) return pair.value;
+  const next = doc.createNode([]) as YAMLSeq;
+  if (pair) {
+    pair.value = preserveNodeComments(
+      pair.value && typeof pair.value === 'object' ? (pair.value as Node) : undefined,
+      next
+    );
+  } else {
+    map.items.push(doc.createPair(key, next));
+  }
+  return next;
+}
+
+function replaceSequenceItems(seq: YAMLSeq, items: Node[]): void {
+  const originalItems = [...seq.items] as Node[];
+  const comments = new Map<Node, string | null | undefined>();
+  originalItems.forEach((item, index) => {
+    comments.set(item, index === 0 ? seq.commentBefore : item.commentBefore);
+  });
+
+  items.forEach((item) => {
+    item.commentBefore = comments.get(item);
+  });
+  seq.items = items;
+  seq.commentBefore = items.length > 0 ? items[0].commentBefore : undefined;
+  if (items[0]) items[0].commentBefore = undefined;
+}
+
+function syncStringSequence(
+  doc: YamlDocument,
+  map: YAMLMap,
+  key: string,
+  baseline: string[] | undefined,
+  desired: string[] | undefined
+): void {
+  const values = serializeStringListForYaml(desired);
+  if (values.length === 0) {
+    deleteMapValue(map, key);
+    return;
+  }
+
+  const seq = ensureSeqValue(doc, map, key);
+  const available = (baseline ?? []).map((value, index) => ({ value: value.trim(), index }));
+  const used = new Set<number>();
+  const items = values.map((value) => {
+    const match = available.find((item) => item.value === value && !used.has(item.index));
+    const existing = match ? seq.items[match.index] : undefined;
+    if (match) used.add(match.index);
+    if (isScalar(existing)) {
+      existing.value = value;
+      return existing;
+    }
+    return doc.createNode(value) as Node;
+  });
+  replaceSequenceItems(seq, items);
+}
+
+function replaceMapItems(map: YAMLMap, items: Pair[]): void {
+  const originalItems = [...map.items];
+  const comments = new Map<Pair, string | null | undefined>();
+  originalItems.forEach((pair, index) => {
+    const key = pair.key && typeof pair.key === 'object' ? (pair.key as Node) : undefined;
+    comments.set(pair, index === 0 ? map.commentBefore : key?.commentBefore);
+  });
+
+  items.forEach((pair) => {
+    const key = pair.key && typeof pair.key === 'object' ? (pair.key as Node) : undefined;
+    if (key) key.commentBefore = comments.get(pair);
+  });
+  map.items = items;
+  const firstKey = items[0]?.key;
+  const firstKeyNode = firstKey && typeof firstKey === 'object' ? (firstKey as Node) : undefined;
+  map.commentBefore = firstKeyNode?.commentBefore;
+  if (firstKeyNode) firstKeyNode.commentBefore = undefined;
+}
+
+function syncEntryMap<T extends { id: string }>(
+  doc: YamlDocument,
+  map: YAMLMap,
+  baseline: T[],
+  desired: T[],
+  getKey: (entry: T) => string,
+  getValue: (entry: T) => unknown
+): void {
+  const pairsById = new Map<string, Pair>();
+  baseline.forEach((entry) => {
+    const pair = mapPair(map, getKey(entry));
+    if (pair) pairsById.set(entry.id, pair);
+  });
+
+  const managedKeys = new Set(baseline.map((entry) => getKey(entry)));
+  const entries = desired.filter((entry) => getKey(entry).trim());
+  const desiredKeys = new Set(entries.map((entry) => getKey(entry).trim()));
+  const items = entries.map((entry) => {
+    const key = getKey(entry).trim();
+    const pair = pairsById.get(entry.id) ?? doc.createPair(key, getValue(entry));
+    if (isScalar(pair.key)) pair.key.value = key;
+    else pair.key = doc.createNode(key) as Node;
+    updatePairValue(doc, pair, getValue(entry));
+    return pair;
+  });
+  const unmanagedItems = map.items.filter((pair) => {
+    const key = String(isScalar(pair.key) ? pair.key.value : pair.key);
+    return !managedKeys.has(key) && !desiredKeys.has(key);
+  });
+  replaceMapItems(map, [...items, ...unmanagedItems]);
+}
+
+function syncConditionSequence(
+  doc: YamlDocument,
+  modelMap: YAMLMap,
+  key: string,
+  baseline: PayloadParamEntry[] | undefined,
+  desired: PayloadParamEntry[] | undefined
+): void {
+  // Unedited conditions retain their original grouping and nested value comments.
+  if (JSON.stringify(baseline ?? []) === JSON.stringify(desired ?? [])) return;
+
+  const entries = (desired ?? []).filter((entry) => entry.path.trim());
+  if (entries.length === 0) {
+    deleteMapValue(modelMap, key);
+    return;
+  }
+  const seq = ensureSeqValue(doc, modelMap, key);
+  const flattened: YAMLMap[] = [];
+  seq.items.forEach((node, itemIndex) => {
+    if (isMap(node)) {
+      // Match parsePayloadConditions' Object.entries order, including numeric keys.
+      Object.keys(node.toJSON() as Record<string, unknown>).forEach((path) => {
+        const pair = mapPair(node, path);
+        if (!pair) return;
+        const item = doc.createNode({}) as YAMLMap;
+        item.flow = node.flow;
+        item.items = [pair];
+        if (pair === node.items[0]) {
+          item.commentBefore = itemIndex === 0 ? seq.commentBefore : node.commentBefore;
+          item.spaceBefore = node.spaceBefore;
+        }
+        if (pair === node.items[node.items.length - 1]) item.comment = node.comment;
+        flattened.push(item);
+      });
+    } else if (isScalar(node) && typeof node.value === 'string') {
+      // Keep the parser's compatibility with scalar entries without shifting IDs.
+      const item = doc.createNode({ [node.value]: '' }) as YAMLMap;
+      preserveNodeComments(node, item);
+      if (itemIndex === 0) item.commentBefore = seq.commentBefore;
+      flattened.push(item);
+    }
+  });
+  const nodesById = new Map((baseline ?? []).map((entry, index) => [entry.id, flattened[index]]));
+  const priorById = new Map((baseline ?? []).map((entry) => [entry.id, entry]));
+  const items = entries.map((entry) => {
+    const item = nodesById.get(entry.id) ?? (doc.createNode({}) as YAMLMap);
+    const prior = priorById.get(entry.id);
+    const pair = item.items[0];
+    if (pair) {
+      if (isScalar(pair.key)) pair.key.value = entry.path.trim();
+      else pair.key = doc.createNode(entry.path.trim()) as Node;
+      if (prior?.value !== entry.value || prior?.valueType !== entry.valueType) {
+        updatePairValue(doc, pair, serializePayloadParamEntryValue(entry));
       }
-
-      return { models, params };
-    })
-    .filter((rule) => rule.models.length > 0);
+    } else {
+      item.items.push(doc.createPair(entry.path.trim(), serializePayloadParamEntryValue(entry)));
+    }
+    return item;
+  });
+  // These are new singleton wrappers; replaceSequenceItems would discard their
+  // comments because they are not members of the original sequence.
+  seq.items = items;
+  seq.commentBefore = items[0]?.commentBefore;
+  if (items[0]) items[0].commentBefore = undefined;
 }
 
-function serializePayloadFilterRulesForYaml(
-  rules: PayloadFilterRule[]
-): Array<Record<string, unknown>> {
-  return rules
-    .map((rule) => {
-      const models = serializePayloadModelsForYaml(rule.models);
+function syncPayloadModels(
+  doc: YamlDocument,
+  ruleMap: YAMLMap,
+  baseline: PayloadRule['models'],
+  desired: PayloadRule['models']
+): void {
+  const models = desired.filter((model) => model.name.trim());
+  const seq = ensureSeqValue(doc, ruleMap, 'models');
+  const nodesById = new Map(baseline.map((model, index) => [model.id, seq.items[index]]));
+  const items = models.map((model) => {
+    const existing = nodesById.get(model.id);
+    const modelMap = isMap(existing) ? existing : (doc.createNode({}) as YAMLMap);
+    const prior = baseline.find((candidate) => candidate.id === model.id);
+    setMapValue(doc, modelMap, 'name', model.name.trim());
+    if (model.protocol) setMapValue(doc, modelMap, 'protocol', model.protocol);
+    else deleteMapValue(modelMap, 'protocol');
+    if (model.fromProtocol) setMapValue(doc, modelMap, 'from-protocol', model.fromProtocol);
+    else deleteMapValue(modelMap, 'from-protocol');
 
-      const params = (Array.isArray(rule.params) ? rule.params : [])
-        .map((path) => String(path).trim())
-        .filter(Boolean);
+    const headers = model.headers?.filter((header) => header.name.trim()) ?? [];
+    if (headers.length) {
+      const headersMap = ensureMapValue(doc, modelMap, 'headers');
+      syncEntryMap(
+        doc,
+        headersMap,
+        prior?.headers ?? [],
+        headers,
+        (header) => header.name,
+        (header) => header.value
+      );
+    } else deleteMapValue(modelMap, 'headers');
 
-      return { models, params };
-    })
-    .filter((rule) => rule.models.length > 0);
+    syncConditionSequence(doc, modelMap, 'match', prior?.match, model.match);
+    syncConditionSequence(doc, modelMap, 'not-match', prior?.notMatch, model.notMatch);
+    syncStringSequence(doc, modelMap, 'exist', prior?.exist, model.exist);
+    syncStringSequence(doc, modelMap, 'not-exist', prior?.notExist, model.notExist);
+    return modelMap;
+  });
+  replaceSequenceItems(seq, items);
 }
 
-function serializeRawPayloadRulesForYaml(rules: PayloadRule[]): Array<Record<string, unknown>> {
-  return rules
-    .map((rule) => {
-      const models = serializePayloadModelsForYaml(rule.models);
+function syncPayloadRuleSequence(
+  doc: YamlDocument,
+  payload: YAMLMap,
+  section: string,
+  baseline: PayloadRule[],
+  desired: PayloadRule[],
+  rawValues: boolean
+): void {
+  const rules = desired.filter((rule) => rule.models.some((model) => model.name.trim()));
+  if (rules.length === 0) {
+    deleteMapValue(payload, section);
+    return;
+  }
 
-      const params: Record<string, unknown> = {};
-      for (const param of rule.params || []) {
-        if (!param.path?.trim()) continue;
-        params[param.path.trim()] = param.value;
-      }
+  const seq = ensureSeqValue(doc, payload, section);
+  const nodesById = new Map(baseline.map((rule, index) => [rule.id, seq.items[index]]));
+  const items = rules.map((rule) => {
+    const existing = nodesById.get(rule.id);
+    const ruleMap = isMap(existing) ? existing : (doc.createNode({}) as YAMLMap);
+    const prior = baseline.find((candidate) => candidate.id === rule.id);
+    syncPayloadModels(doc, ruleMap, prior?.models ?? [], rule.models);
+    const params = ensureMapValue(doc, ruleMap, 'params');
+    syncEntryMap(
+      doc,
+      params,
+      prior?.params ?? [],
+      rule.params,
+      (param) => param.path,
+      (param) => (rawValues ? param.value : serializePayloadParamEntryValue(param))
+    );
+    return ruleMap;
+  });
+  replaceSequenceItems(seq, items);
+}
 
-      return { models, params };
-    })
-    .filter((rule) => rule.models.length > 0);
+function syncPayloadFilterSequence(
+  doc: YamlDocument,
+  payload: YAMLMap,
+  baseline: PayloadFilterRule[],
+  desired: PayloadFilterRule[]
+): void {
+  const rules = desired.filter((rule) => rule.models.some((model) => model.name.trim()));
+  if (rules.length === 0) {
+    deleteMapValue(payload, 'filter');
+    return;
+  }
+
+  const seq = ensureSeqValue(doc, payload, 'filter');
+  const nodesById = new Map(baseline.map((rule, index) => [rule.id, seq.items[index]]));
+  const items = rules.map((rule) => {
+    const existing = nodesById.get(rule.id);
+    const ruleMap = isMap(existing) ? existing : (doc.createNode({}) as YAMLMap);
+    const prior = baseline.find((candidate) => candidate.id === rule.id);
+    syncPayloadModels(doc, ruleMap, prior?.models ?? [], rule.models);
+    syncStringSequence(doc, ruleMap, 'params', prior?.params, rule.params);
+    return ruleMap;
+  });
+  replaceSequenceItems(seq, items);
 }
 
 type VisualConfigState = {
@@ -934,6 +1162,21 @@ function getNextDirtyFields(
       arePluginStoreAuthRulesEqual(nextValues.pluginStoreAuth, baselineValues.pluginStoreAuth)
     );
   }
+  if (Object.prototype.hasOwnProperty.call(patch, 'antigravitySensitiveWords')) {
+    updateDirty(
+      'antigravitySensitiveWords',
+      areStringArraysEqual(
+        nextValues.antigravitySensitiveWords,
+        baselineValues.antigravitySensitiveWords
+      )
+    );
+  }
+  if (Object.prototype.hasOwnProperty.call(patch, 'devinSensitiveWords')) {
+    updateDirty(
+      'devinSensitiveWords',
+      areStringArraysEqual(nextValues.devinSensitiveWords, baselineValues.devinSensitiveWords)
+    );
+  }
 
   if (Object.prototype.hasOwnProperty.call(patch, 'payloadDefaultRules')) {
     updateDirty(
@@ -1037,7 +1280,7 @@ export function useVisualConfig() {
     undefined,
     createInitialVisualConfigState
   );
-  const { visualValues, visualParseError, dirtyFields } = state;
+  const { visualValues, baselineValues, visualParseError, dirtyFields } = state;
   const visualDirty = dirtyFields.size > 0;
   const visualValidationErrors = useMemo(
     () => getVisualConfigValidationErrors(visualValues),
@@ -1099,6 +1342,8 @@ export function useVisualConfig() {
       const logsRotation = asRecord(parsed['logs-rotation']) ?? {};
       const semanticCache = asRecord(parsed['semantic-cache']) ?? {};
       const modelCapabilities = asRecord(parsed['model-capabilities']) ?? {};
+      const antigravity = asRecord(parsed.antigravity);
+      const devin = asRecord(parsed.devin);
 
       // Ensure nested objects exist
       const quotaCache = asRecord(quota.cache) ?? {};
@@ -1236,7 +1481,6 @@ export function useVisualConfig() {
           defaultBudget: typeof intelligentRouting?.['default-budget'] === 'string' ? intelligentRouting['default-budget'] : 'balanced',
           confidenceThreshold: Number(intelligentRouting?.['confidence-threshold'] ?? 0.7),
           decisionCacheTTL: typeof intelligentRouting?.['decision-cache-ttl'] === 'string' ? intelligentRouting['decision-cache-ttl'] : '10m',
-          modelAliases: [], // Not parsing from YAML for now
         },
         llmRouting: {
           enabled: Boolean(llmRouting?.enabled ?? false),
@@ -1482,8 +1726,8 @@ export function useVisualConfig() {
         antigravitySignatureBypassStrict: Boolean(parsed['antigravity-signature-bypass-strict'] ?? false),
         disableClaudeCloakMode: Boolean(parsed['disable-claude-cloak-mode'] ?? false),
         // Advanced section fields
-        antigravitySensitiveWords: parseStringList(parsed['antigravity-sensitive-words']),
-        devinSensitiveWords: parseStringList(parsed['devin-sensitive-words']),
+        antigravitySensitiveWords: parseStringList(antigravity?.['sensitive-words']),
+        devinSensitiveWords: parseStringList(devin?.['sensitive-words']),
         // aiAgent
         aiAgent: {
           enabled: Boolean(aiAgent?.enabled ?? false),
@@ -1694,6 +1938,29 @@ export function useVisualConfig() {
             values.antigravitySignatureBypassStrict
           );
         }
+        if (dirtyFields.has('antigravitySensitiveWords')) {
+          ensureMapInDoc(doc, ['antigravity']);
+          setStringListInDoc(
+            doc,
+            ['antigravity', 'sensitive-words'],
+            values.antigravitySensitiveWords
+          );
+          deleteIfMapEmpty(doc, ['antigravity']);
+        }
+        if (dirtyFields.has('devinSensitiveWords')) {
+          ensureMapInDoc(doc, ['devin']);
+          const devin = doc.getIn(['devin'], true);
+          if (isMap(devin)) {
+            syncStringSequence(
+              doc,
+              devin,
+              'sensitive-words',
+              baselineValues.devinSensitiveWords,
+              values.devinSensitiveWords
+            );
+          }
+          deleteIfMapEmpty(doc, ['devin']);
+        }
 
         const claudeHeadersDirty =
           dirtyFields.has('claudeHeaderUserAgent') ||
@@ -1883,54 +2150,55 @@ export function useVisualConfig() {
 
         if (hasPayloadDirtyFields(dirtyFields)) {
           ensureMapInDoc(doc, ['payload']);
-          if (dirtyFields.has('payloadDefaultRules')) {
-            if (values.payloadDefaultRules.length > 0) {
-              doc.setIn(
-                ['payload', 'default'],
-                serializePayloadRulesForYaml(values.payloadDefaultRules)
+          const payload = doc.getIn(['payload'], true);
+          if (isMap(payload)) {
+            if (dirtyFields.has('payloadDefaultRules')) {
+              syncPayloadRuleSequence(
+                doc,
+                payload,
+                'default',
+                baselineValues.payloadDefaultRules,
+                values.payloadDefaultRules,
+                false
               );
-            } else if (docHas(doc, ['payload', 'default'])) {
-              doc.deleteIn(['payload', 'default']);
             }
-          }
-          if (dirtyFields.has('payloadDefaultRawRules')) {
-            if (values.payloadDefaultRawRules.length > 0) {
-              doc.setIn(
-                ['payload', 'default-raw'],
-                serializeRawPayloadRulesForYaml(values.payloadDefaultRawRules)
+            if (dirtyFields.has('payloadDefaultRawRules')) {
+              syncPayloadRuleSequence(
+                doc,
+                payload,
+                'default-raw',
+                baselineValues.payloadDefaultRawRules,
+                values.payloadDefaultRawRules,
+                true
               );
-            } else if (docHas(doc, ['payload', 'default-raw'])) {
-              doc.deleteIn(['payload', 'default-raw']);
             }
-          }
-          if (dirtyFields.has('payloadOverrideRules')) {
-            if (values.payloadOverrideRules.length > 0) {
-              doc.setIn(
-                ['payload', 'override'],
-                serializePayloadRulesForYaml(values.payloadOverrideRules)
+            if (dirtyFields.has('payloadOverrideRules')) {
+              syncPayloadRuleSequence(
+                doc,
+                payload,
+                'override',
+                baselineValues.payloadOverrideRules,
+                values.payloadOverrideRules,
+                false
               );
-            } else if (docHas(doc, ['payload', 'override'])) {
-              doc.deleteIn(['payload', 'override']);
             }
-          }
-          if (dirtyFields.has('payloadOverrideRawRules')) {
-            if (values.payloadOverrideRawRules.length > 0) {
-              doc.setIn(
-                ['payload', 'override-raw'],
-                serializeRawPayloadRulesForYaml(values.payloadOverrideRawRules)
+            if (dirtyFields.has('payloadOverrideRawRules')) {
+              syncPayloadRuleSequence(
+                doc,
+                payload,
+                'override-raw',
+                baselineValues.payloadOverrideRawRules,
+                values.payloadOverrideRawRules,
+                true
               );
-            } else if (docHas(doc, ['payload', 'override-raw'])) {
-              doc.deleteIn(['payload', 'override-raw']);
             }
-          }
-          if (dirtyFields.has('payloadFilterRules')) {
-            if (values.payloadFilterRules.length > 0) {
-              doc.setIn(
-                ['payload', 'filter'],
-                serializePayloadFilterRulesForYaml(values.payloadFilterRules)
+            if (dirtyFields.has('payloadFilterRules')) {
+              syncPayloadFilterSequence(
+                doc,
+                payload,
+                baselineValues.payloadFilterRules,
+                values.payloadFilterRules
               );
-            } else if (docHas(doc, ['payload', 'filter'])) {
-              doc.deleteIn(['payload', 'filter']);
             }
           }
           deleteIfMapEmpty(doc, ['payload']);
@@ -1941,7 +2209,7 @@ export function useVisualConfig() {
         return currentYaml;
       }
     },
-    [dirtyFields, visualValues]
+    [baselineValues, dirtyFields, visualValues]
   );
 
   const setVisualValues = useCallback((newValues: Partial<VisualConfigValues>) => {

@@ -9,9 +9,9 @@ import {
   normalizePlanType,
   resolvePlanTier,
   PREMIUM_CODEX_PLAN_TYPES,
-  formatShanghaiDateTime,
 } from '@/utils/quota';
 import { formatDateTimeValue } from '@/utils/format';
+import { formatLocalDateTime, resolveTimeZoneLabel } from '@/utils/time/timezone';
 import { QuotaMeter } from '../../components/QuotaMeter';
 import { relativeTimeParts, buildResetDisplay } from '@/utils/quota/relativeTime';
 import type { QuotaBodyProps, QuotaClassMap } from '../../types';
@@ -83,7 +83,7 @@ export function CodexQuotaBody({ quota, classes, nowMs: nowMsProp }: QuotaBodyPr
       {rateLimitResetCredits.length > 0 ? (
         <div className={classes.codexResetCredits}>
           <div className={classes.codexResetCreditsTitle}>
-            {t('codex_quota.reset_credits_expiry_label')}
+            {t('codex_quota.reset_credits_expiry_label', { timezone: resolveTimeZoneLabel() })}
           </div>
           {rateLimitResetCredits.map((credit, index) => {
             const expiresAtMs = credit.expiresAt ? new Date(credit.expiresAt).getTime() : null;
@@ -94,13 +94,13 @@ export function CodexQuotaBody({ quota, classes, nowMs: nowMsProp }: QuotaBodyPr
             return (
               <div
                 key={credit.id || `${credit.expiresAt}-${index}`}
-                className={`${classes.codexResetCreditRow} ${isExpiringSoon ? ' codexResetCreditRowSoon' : ''}`}
+                className={`${classes.codexResetCreditRow}${isExpiringSoon ? ` ${classes.codexResetCreditRowSoon}` : ''}`}
               >
                 <span className={classes.codexResetCreditLabel}>
                   {t('codex_quota.reset_credit_number', { index: index + 1 })}
                 </span>
                 <span className={classes.codexResetCreditTime}>
-                  {formatShanghaiDateTime(credit.expiresAt) || credit.expiresAt}
+                  {formatLocalDateTime(credit.expiresAt) || credit.expiresAt}
                 </span>
               </div>
             );

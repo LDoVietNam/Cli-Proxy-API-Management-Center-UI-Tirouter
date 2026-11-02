@@ -102,10 +102,11 @@ describe('CodexQuotaBody', () => {
     const baseNow = Date.now();
     const markup = renderToStaticMarkup(createElement(CodexQuotaBody, { quota, classes, nowMs: baseNow }));
 
-    // Credit expiry uses formatShanghaiDateTime which formats in Shanghai timezone (UTC+8)
+    // Credit expiry follows the browser timezone, like every other timestamp
+    // on the page — no fixed GMT+8.
     const expiryDate = new Date(baseNow + 11 * DAY_MS);
-    const shanghaiTime = new Date(expiryDate.getTime() + 8 * 60 * 60 * 1000);
-    const expectedExpiry = shanghaiTime.toISOString().replace('T', ' ').slice(0, 19);
+    const localTime = new Date(expiryDate.getTime() - expiryDate.getTimezoneOffset() * 60_000);
+    const expectedExpiry = localTime.toISOString().replace('T', ' ').slice(0, 19);
     expect(markup).toContain(expectedExpiry);
     // Relative time for credit expiry is not currently displayed (only absolute time)
     // expect(markup).toMatch(/11 days/);
@@ -168,7 +169,8 @@ describe('CodexQuotaBody', () => {
 
 describe('KimiQuotaBody', () => {
   test('renders the concrete reset time alongside its countdown', () => {
-    const resetAtMs = Date.now() + 3 * HOUR_MS;
+    const nowMs = Date.now();
+    const resetAtMs = nowMs + 3 * HOUR_MS;
     const quota: KimiQuotaState = {
       status: 'success',
       rows: [
@@ -183,7 +185,7 @@ describe('KimiQuotaBody', () => {
         },
       ],
     };
-    const markup = renderToStaticMarkup(createElement(KimiQuotaBody, { quota, classes, nowMs: Date.now() }));
+    const markup = renderToStaticMarkup(createElement(KimiQuotaBody, { quota, classes, nowMs }));
 
     expect(markup).toContain(formatInstantShort(resetAtMs));
     expect(markup).toContain('quotaResetRelative');
@@ -194,6 +196,9 @@ describe('KimiQuotaBody', () => {
 
 describe('ClaudeQuotaBody', () => {
   test('pairs each window reset with a countdown', () => {
+    // One timestamp for both fixture and render: the countdown truncates, so a
+    // single elapsed millisecond between the two calls drops 2h to "1 hour".
+    const nowMs = Date.now();
     const quota: ClaudeQuotaState = {
       status: 'success',
       windows: [
@@ -202,7 +207,7 @@ describe('ClaudeQuotaBody', () => {
           label: '5-hour',
           usedPercent: 12,
           resetLabel: '08-02 17:00',
-          resetAtMs: Date.now() + 2 * HOUR_MS,
+          resetAtMs: nowMs + 2 * HOUR_MS,
           periodHours: 5,
         },
         {
@@ -210,12 +215,12 @@ describe('ClaudeQuotaBody', () => {
           label: '7-day',
           usedPercent: 60,
           resetLabel: '08-06 04:00',
-          resetAtMs: Date.now() + 4 * DAY_MS,
+          resetAtMs: nowMs + 4 * DAY_MS,
           periodHours: 168,
         },
       ],
     };
-    const markup = renderToStaticMarkup(createElement(ClaudeQuotaBody, { quota, classes, nowMs: Date.now() }));
+    const markup = renderToStaticMarkup(createElement(ClaudeQuotaBody, { quota, classes, nowMs }));
 
     expect(markup).toContain('08-02 17:00');
     expect(markup).toContain('08-06 04:00');

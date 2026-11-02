@@ -33,11 +33,9 @@ const parseWindow = (
 
   return {
     id,
-    label: id === 'window' ? 'Daily' : 'Weekly',
     usedPercent: parseUsedPercent(raw.used_percent),
-    resetLabel: '',
-    ...(resetAt !== undefined ? { resetAtMs: resetAt * 1000 } : { resetAtMs: undefined }),
-    ...(durationMinutes !== undefined ? { periodHours: durationMinutes / 60 } : { periodHours: undefined }),
+    ...(resetAt === undefined ? {} : { resetAt }),
+    ...(durationMinutes === undefined ? {} : { durationMinutes }),
   };
 };
 
@@ -65,7 +63,7 @@ export function parseMetaQuotaPayload(payload: unknown): MetaQuotaData | null {
   const planName = explicitPlan || usagePlan;
 
   return {
-    ...(planName ? { planType: planName } : {}),
+    ...(planName ? { planName } : {}),
     ...(typeof root.is_subs_active === 'boolean'
       ? { isSubscriptionActive: root.is_subs_active }
       : {}),

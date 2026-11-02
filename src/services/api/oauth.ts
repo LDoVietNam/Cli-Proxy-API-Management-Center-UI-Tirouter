@@ -5,7 +5,7 @@
 import { apiClient } from './client';
 import {
   isManagementOAuthProviderKey,
-  normalizeManagementOAuthProviderKey,
+  normalizeOAuthProviderKey,
 } from '@/utils/providerKeys';
 
 export type BuiltInOAuthProvider =
@@ -16,6 +16,7 @@ export type BuiltInOAuthProvider =
   | 'xai'
   | 'kilo'
   | 'devin'
+  | 'meta'
   | 'freebuff'
   | 'google'
   | 'mistral'
@@ -25,6 +26,9 @@ export type BuiltInOAuthProvider =
 export interface OAuthStartResponse {
   url: string;
   state?: string;
+  user_code?: string;
+  flow?: string;
+  expires_in?: number;
 }
 
 export interface OAuthCallbackResponse {
@@ -34,7 +38,7 @@ export interface OAuthCallbackResponse {
 const WEBUI_SUPPORTED = new Set<string>(['codex', 'anthropic', 'antigravity', 'xai', 'devin']);
 
 const normalizeProviderForManagementPath = (provider: string): string => {
-  const key = normalizeManagementOAuthProviderKey(provider);
+  const key = normalizeOAuthProviderKey(provider);
   if (!isManagementOAuthProviderKey(key)) {
     throw new Error('Invalid OAuth provider');
   }
@@ -50,7 +54,7 @@ export const oauthApi = {
     }
     return apiClient.get<OAuthStartResponse>(`/${providerKey}-auth-url`, {
       params: Object.keys(params).length ? params : undefined,
-      signal,
+      ...(signal ? { signal } : {}),
     });
   },
 

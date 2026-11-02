@@ -23,6 +23,7 @@ import {
 } from '@/features/authFiles/oauthEditorState';
 import type { AuthFileItem, OAuthModelAliasEntry } from '@/types';
 import { generateId, getErrorMessage } from '@/utils/helpers';
+import editorStyles from '@/features/authFiles/components/OAuthEditor.module.scss';
 import styles from './AuthFilesOAuthModelAliasEditPage.module.scss';
 
 type AuthFileModelItem = { id: string; display_name?: string; type?: string; owned_by?: string };
@@ -400,6 +401,7 @@ export function AuthFilesOAuthModelAliasEditPage() {
       onBack={handleBack}
       backLabel={t('common.back')}
       backAriaLabel={t('common.back')}
+      topBarClassName={editorStyles.topBar}
       contentClassName={styles.pageContent}
       rightAction={
         <Button size="sm" onClick={handleSave} loading={saving} disabled={!canSave}>

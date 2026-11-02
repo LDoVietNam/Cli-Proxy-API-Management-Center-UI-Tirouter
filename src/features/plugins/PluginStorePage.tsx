@@ -1195,3 +1195,5 @@ export function PluginStorePage() {
     </div>
   );
 }
+
+export default PluginStorePage;
