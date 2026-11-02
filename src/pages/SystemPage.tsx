@@ -10,13 +10,13 @@ import {
   useAuthStore,
   useConfigStore,
   useNotificationStore,
-  useModelsStore,
   useThemeStore,
 } from '@/stores';
 import { configApi, versionApi } from '@/services/api';
+import { modelsApi } from '@/services/api/models';
 
 import { formatDateTimeValue } from '@/utils/format';
-import { classifyModels } from '@/utils/models';
+import { classifyModels, type ModelInfo } from '@/utils/models';
 import { STORAGE_KEY_AUTH } from '@/utils/constants';
 import { INLINE_LOGO_JPEG } from '@/assets/logoInline';
 import iconGemini from '@/assets/icons/gemini.svg';
@@ -81,10 +81,9 @@ export function SystemPage() {
   const clearCache = useConfigStore((state) => state.clearCache);
   const updateConfigValue = useConfigStore((state) => state.updateConfigValue);
 
-  const models = useModelsStore((state) => state.models);
-  const modelsLoading = useModelsStore((state) => state.loading);
-  const modelsError = useModelsStore((state) => state.error);
-  const fetchModelsFromStore = useModelsStore((state) => state.fetchModels);
+  const [models, setModels] = useState<ModelInfo[]>([]);
+  const [modelsLoading, setModelsLoading] = useState(false);
+  const [modelsError, setModelsError] = useState<string | null>(null);
 
   const [modelStatus, setModelStatus] = useState<{
     type: 'success' | 'warning' | 'error' | 'muted';
@@ -120,7 +119,7 @@ export function SystemPage() {
     return resolvedTheme === 'dark' ? iconEntry.dark : iconEntry.light;
   };
 
-  const fetchModels = async ({ forceRefresh = false }: { forceRefresh?: boolean } = {}) => {
+  const fetchModels = async () => {
     if (auth.connectionStatus !== 'connected') {
       setModelStatus({
         type: 'warning',
@@ -128,22 +127,43 @@ export function SystemPage() {
       });
       return;
     }
-
+    // The registry listing is management-authenticated; GET /v1/models needs a
+    // gateway API key, which the panel does not hold, so it would answer 401.
+    setModelsLoading(true);
+    setModelsError(null);
     setModelStatus({ type: 'muted', message: t('system_info.models_loading') });
     try {
-      const list = await fetchModelsFromStore('', '', forceRefresh);
-      const hasModels = list.length > 0;
+      const data = await modelsApi.fetchAvailableModelsByProvider();
+      const list: ModelInfo[] = [];
+      const seen = new Set<string>();
+      for (const group of Object.values(data.models_by_provider ?? {})) {
+        for (const raw of group) {
+          const name = String(raw?.id ?? raw?.name ?? '').trim();
+          if (!name || seen.has(name.toLowerCase())) continue;
+          seen.add(name.toLowerCase());
+          const entry: ModelInfo = { name };
+          const alias = String(raw?.display_name ?? '').trim();
+          if (alias && alias !== name) entry.alias = alias;
+          if (raw?.description) entry.description = String(raw.description);
+          list.push(entry);
+        }
+      }
+      setModels(list);
       setModelStatus({
-        type: hasModels ? 'success' : 'warning',
-        message: hasModels
-          ? t('system_info.models_count', { count: list.length })
-          : t('system_info.models_empty'),
+        type: list.length > 0 ? 'success' : 'warning',
+        message:
+          list.length > 0
+            ? t('system_info.models_count', { count: list.length })
+            : t('system_info.models_empty'),
       });
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : typeof err === 'string' ? err : '';
+      setModelsError(message || null);
       const suffix = message ? `: ${message}` : '';
       const text = `${t('system_info.models_error')}${suffix}`;
       setModelStatus({ type: 'error', message: text });
+    } finally {
+      setModelsLoading(false);
     }
   };
 
@@ -399,7 +419,7 @@ export function SystemPage() {
             <Button
               variant="secondary"
               size="sm"
-              onClick={() => fetchModels({ forceRefresh: true })}
+              onClick={() => fetchModels()}
               loading={modelsLoading}
             >
               {t('common.refresh')}

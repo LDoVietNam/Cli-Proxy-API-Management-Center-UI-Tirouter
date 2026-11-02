@@ -169,7 +169,7 @@ export function ModelsPage() {
           className={`${styles['btn-test']} ${isTesting ? styles.testing : ''} ${testResult?.ok ? styles.success : testResult?.ok === false ? styles.failed : ''}`}
           onClick={() => void handleTestModel(model, provider)}
           disabled={loading || isTesting}
-          aria-label={t('models.test')}
+          aria-label={t('auth_files.models_test')}
         >
           {isTesting ? (
             <span className={styles.spinner} aria-hidden="true" />
@@ -179,7 +179,7 @@ export function ModelsPage() {
             <span className={`${styles['status-icon']} ${styles.failed}`} aria-hidden="true" />
           ) : null}
           <span className={styles['btn-label']}>
-            {isTesting ? t('models.test_running') : t('models.test')}
+            {isTesting ? t('auth_files.models_test_running') : t('auth_files.models_test')}
           </span>
         </button>
         <button
@@ -187,7 +187,7 @@ export function ModelsPage() {
           className={styles['btn-expand']}
           onClick={() => toggleExpanded(modelKey)}
           aria-expanded={isExpanded}
-          aria-label={isExpanded ? t('models.collapse') : t('models.expand')}
+          aria-label={isExpanded ? t('auth_files.models_collapse') : t('auth_files.models_expand')}
         >
           <span className={`${styles.chevron} ${isExpanded ? styles.expanded : ''}`} aria-hidden="true" />
         </button>
@@ -198,18 +198,18 @@ export function ModelsPage() {
   const testResultBlock = (testResult: ModelTestResult) => (
     <div className={`${styles['test-result']} ${testResult.ok ? styles.success : styles.error}`}>
       <div className={styles['test-result-header']}>
-        <span>{testResult.ok ? t('models.test_passed') : t('models.test_failed')}</span>
+        <span>{testResult.ok ? t('auth_files.models_test_passed') : t('auth_files.models_test_failed')}</span>
         <span className={styles['test-latency']}>{testResult.latency}</span>
       </div>
       {testResult.status_code && (
         <div className={styles['test-result-row']}>
-          <span className={styles['test-label']}>{t('models.status_code')}</span>
+          <span className={styles['test-label']}>{t('auth_files.models_status_code')}</span>
           <span className={styles['test-value']}>{testResult.status_code}</span>
         </div>
       )}
       {testResult.tokens_used && (
         <div className={styles['test-result-row']}>
-          <span className={styles['test-label']}>{t('models.tokens_used')}</span>
+          <span className={styles['test-label']}>{t('auth_files.models_tokens_used')}</span>
           <span className={styles['test-value']}>
             {testResult.tokens_used} (prompt: {testResult.prompt_tokens}, completion: {testResult.completion_tokens})
           </span>
@@ -222,7 +222,7 @@ export function ModelsPage() {
       )}
       {testResult.response && (
         <details className={styles['test-response']}>
-          <summary>{t('models.response')}</summary>
+          <summary>{t('auth_files.models_response')}</summary>
           <pre>{testResult.response}</pre>
         </details>
       )}
@@ -232,24 +232,24 @@ export function ModelsPage() {
   const modelDetails = (model: AvailableModel, testResult?: ModelTestResult) => (
     <div className={styles['model-details']}>
       <div className={styles['detail-row']}>
-        <span className={styles['detail-label']}>{t('models.id')}</span>
+        <span className={styles['detail-label']}>{t('auth_files.models_id')}</span>
         <span className={styles['detail-value']}>{model.id || model.name || '-'}</span>
       </div>
       {model.display_name && (
         <div className={styles['detail-row']}>
-          <span className={styles['detail-label']}>{t('models.display_name')}</span>
+          <span className={styles['detail-label']}>{t('auth_files.models_display_name')}</span>
           <span className={styles['detail-value']}>{model.display_name}</span>
         </div>
       )}
       {model.description && (
         <div className={styles['detail-row']}>
-          <span className={styles['detail-label']}>{t('models.description_field')}</span>
+          <span className={styles['detail-label']}>{t('auth_files.models_description_field')}</span>
           <span className={styles['detail-value']}>{model.description}</span>
         </div>
       )}
       {model.context_length && (
         <div className={styles['detail-row']}>
-          <span className={styles['detail-label']}>{t('models.context_length')}</span>
+          <span className={styles['detail-label']}>{t('auth_files.models_context_length')}</span>
           <span className={styles['detail-value']}>
             <span className={`${styles['context-length-badge']} ${styles[`tier-${getContextLengthTier(model.context_length)}`]}`}>
               {model.context_length.toLocaleString()} tokens
@@ -259,25 +259,25 @@ export function ModelsPage() {
       )}
       {model.max_completion_tokens && (
         <div className={styles['detail-row']}>
-          <span className={styles['detail-label']}>{t('models.max_output')}</span>
+          <span className={styles['detail-label']}>{t('auth_files.models_max_output')}</span>
           <span className={styles['detail-value']}>{model.max_completion_tokens.toLocaleString()} tokens</span>
         </div>
       )}
       {model.owned_by && (
         <div className={styles['detail-row']}>
-          <span className={styles['detail-label']}>{t('models.owned_by')}</span>
+          <span className={styles['detail-label']}>{t('auth_files.models_owned_by')}</span>
           <span className={styles['detail-value']}>{model.owned_by}</span>
         </div>
       )}
       {model.type && (
         <div className={styles['detail-row']}>
-          <span className={styles['detail-label']}>{t('models.type')}</span>
+          <span className={styles['detail-label']}>{t('auth_files.models_type')}</span>
           <span className={styles['detail-value']}>{model.type}</span>
         </div>
       )}
       {model.supported_parameters && model.supported_parameters.length > 0 && (
         <div className={styles['detail-row']}>
-          <span className={styles['detail-label']}>{t('models.supported_params')}</span>
+          <span className={styles['detail-label']}>{t('auth_files.models_supported_params')}</span>
           <span className={styles['detail-value']}>
             <span className={styles['param-container']}>
               {model.supported_parameters.map((p: string) => (
@@ -300,9 +300,9 @@ export function ModelsPage() {
   );
 
   const handlerLabel: Record<HandlerId, string> = {
-    openai: t('models.handler_openai'),
-    claude: t('models.handler_claude'),
-    gemini: t('models.handler_gemini'),
+    openai: t('auth_files.models_handler_openai'),
+    claude: t('auth_files.models_handler_claude'),
+    gemini: t('auth_files.models_handler_gemini'),
   };
 
   return (
@@ -310,7 +310,7 @@ export function ModelsPage() {
       <div className={styles['page-header']}>
         <h1>{t('nav.models')}</h1>
         <p className={styles['page-description']}>
-          {t('models.description')}
+          {t('auth_files.models_description')}
         </p>
       </div>
 
@@ -325,7 +325,7 @@ export function ModelsPage() {
           className={`${styles.tab} ${viewMode === 'by-provider' ? styles.active : ''}`}
           onClick={() => setViewMode('by-provider')}
         >
-          {t('models.by_provider')}
+          {t('auth_files.models_by_provider')}
         </button>
         <button
           type="button"
@@ -336,7 +336,7 @@ export function ModelsPage() {
           className={`${styles.tab} ${viewMode === 'by-handler' ? styles.active : ''}`}
           onClick={() => setViewMode('by-handler')}
         >
-          {t('models.by_handler')}
+          {t('auth_files.models_by_handler')}
         </button>
       </div>
 
@@ -345,24 +345,24 @@ export function ModelsPage() {
         <div className={styles['search-box']}>
           <input
             type="text"
-            placeholder={t('models.search_placeholder')}
+            placeholder={t('auth_files.models_search_placeholder')}
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className={styles['search-input']}
-            aria-label={t('models.search_placeholder')}
+            aria-label={t('auth_files.models_search_placeholder')}
           />
         </div>
 
         {viewMode === 'by-provider' && (
           <div className={styles['provider-filter']}>
-            <label htmlFor="models-provider-select">{t('models.filter_provider')}</label>
+            <label htmlFor="models-provider-select">{t('auth_files.models_filter_provider')}</label>
             <select
               id="models-provider-select"
               value={selectedProvider}
               onChange={(e) => setSelectedProvider(e.target.value)}
               className={styles['provider-select']}
             >
-              <option value="">{t('models.all_providers')}</option>
+              <option value="">{t('auth_files.models_all_providers')}</option>
               {allProviders.map(provider => (
                 <option key={provider} value={provider}>
                   {provider}
@@ -374,7 +374,7 @@ export function ModelsPage() {
 
         {viewMode === 'by-handler' && (
           <div className={styles['handler-filter']}>
-            <label htmlFor="models-handler-select">{t('models.filter_handler')}</label>
+            <label htmlFor="models-handler-select">{t('auth_files.models_filter_handler')}</label>
             <select
               id="models-handler-select"
               value={selectedHandler}
@@ -420,13 +420,13 @@ export function ModelsPage() {
               <div className={styles['empty-state']}>
                 {searchQuery ? (
                   <EmptyState
-                    title={t('models.no_results')}
-                    description={t('models.no_results_desc', 'Try a different search term or clear the search box.')}
+                    title={t('auth_files.models_no_results')}
+                    description={t('auth_files.models_no_results_desc', 'Try a different search term or clear the search box.')}
                   />
                 ) : (
                   <EmptyState
-                    title={t('models.no_models')}
-                    description={t('models.no_models_desc', 'Check your provider configurations and refresh.')}
+                    title={t('auth_files.models_no_models')}
+                    description={t('auth_files.models_no_models_desc', 'Check your provider configurations and refresh.')}
                   />
                 )}
               </div>
@@ -438,7 +438,7 @@ export function ModelsPage() {
                       <span className={styles['provider-icon']} aria-hidden="true">{provider.charAt(0).toUpperCase()}</span>
                       {provider}
                     </h2>
-                    <span className={styles['model-count']}>{models.length} {t('models.models_count')}</span>
+                    <span className={styles['model-count']}>{models.length} {t('auth_files.models_models_count')}</span>
                   </div>
                   <div className={styles['models-grid']}>
                     {models.map(model => {
@@ -476,13 +476,13 @@ export function ModelsPage() {
               <div className={styles['empty-state']}>
                 {searchQuery ? (
                   <EmptyState
-                    title={t('models.no_results')}
-                    description={t('models.no_results_desc', 'Try a different search term or clear the search box.')}
+                    title={t('auth_files.models_no_results')}
+                    description={t('auth_files.models_no_results_desc', 'Try a different search term or clear the search box.')}
                   />
                 ) : (
                   <EmptyState
-                    title={t('models.no_models_handler')}
-                    description={t('models.no_models_desc', 'Check your provider configurations and refresh.')}
+                    title={t('auth_files.models_no_models_handler')}
+                    description={t('auth_files.models_no_models_desc', 'Check your provider configurations and refresh.')}
                   />
                 )}
               </div>
